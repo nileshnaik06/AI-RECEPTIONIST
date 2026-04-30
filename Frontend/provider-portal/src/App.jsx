@@ -22,6 +22,7 @@ const EmbedCode    = lazy(() => import('./pages/embed/EmbedCode'));
 const ClinicSettings = lazy(() => import('./pages/ClinicSettings'));
 const WorkingHours = lazy(() => import('./pages/WorkingHours'));
 const Billing      = lazy(() => import('./pages/Billing'));
+const NotFound     = lazy(() => import('./pages/NotFound'));
 
 // ─── Route Guards ─────────────────────────────────────────────────────────────
 
@@ -78,7 +79,7 @@ const router = createBrowserRouter([
   },
   {
     path: '*',
-    element: <Navigate to="/dashboard" replace />,
+    element: <Suspense fallback={<PageLoader />}><NotFound /></Suspense>,
   },
 ]);
 

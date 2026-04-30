@@ -34,7 +34,7 @@ export function StatCard({ label, value, suffix = '', trend, trendValue, icon: I
   const isNegative = trend === 'down';
 
   return (
-    <div className="bg-surface/40 backdrop-blur-xl border border-border/60 rounded-2xl p-6 flex flex-col gap-5 shadow-sm hover:shadow-md hover:border-border/80 transition-all duration-300 group">
+    <div className="bg-surface/40 backdrop-blur-xl border border-border/60 rounded-2xl p-6 flex flex-col gap-5 shadow-sm hover:border-border/80 transition-all duration-300 group">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-[12px] font-semibold uppercase tracking-wider text-text-muted mb-3 group-hover:text-text-secondary transition-colors">{label}</p>
