@@ -1,10 +1,14 @@
 // controllers/admin.controller.js
-const Admin = require("../model/")
-const {hashPassword,comparePassword,generateToken} = require("../Services/auth.service.js")
-const {asyncHandler} = require("../utils/asyncHandler.js")
+const Admin = require("../model/admin.model.js");
+const {
+  hashPassword,
+  comparePassword,
+  generateToken,
+} = require("../Services/auth.service.js");
+const { asyncHandler } = require("../utils/asyncHandler.js");
 
-export const registerAdmin = asyncHandler(async (req, res) => {
-  const { email, password, adminName ,phone} = req.body;
+const registerAdmin = asyncHandler(async (req, res) => {
+  const { email, password, adminName, phone } = req.body;
 
   const exists = await Admin.findOne({ email });
   if (exists) return res.status(400).json({ message: "Admin already exists" });
@@ -14,7 +18,8 @@ export const registerAdmin = asyncHandler(async (req, res) => {
   const admin = await Admin.create({
     email,
     password: hashed,
-    name,
+    adminName,
+    phone,
   });
 
   res.status(201).json({
@@ -23,7 +28,7 @@ export const registerAdmin = asyncHandler(async (req, res) => {
   });
 });
 
-export const loginAdmin = asyncHandler(async (req, res) => {
+const loginAdmin = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
   const admin = await Admin.findOne({ email });
@@ -39,3 +44,8 @@ export const loginAdmin = asyncHandler(async (req, res) => {
 
   res.json({ token });
 });
+
+module.exports = {
+  registerAdmin,
+  loginAdmin,
+};

@@ -12,7 +12,7 @@ const adminSchema = mongoose.Schema(
     email: {
       type: String,
       required: true,
-      uniques: true,
+      unique: true,
     },
 
     phone: {
@@ -30,6 +30,6 @@ const adminSchema = mongoose.Schema(
   { timestamps: true },
 );
 
-const adminMdoel = mongoose.Model("admin", adminSchema);
+const Admin = mongoose.model("admin", adminSchema);
 
-module.exports = adminMdoel;
+module.exports = Admin;

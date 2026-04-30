@@ -4,14 +4,14 @@ const {
   loginAdmin,
 } = require("../controllers/auth.controller.js");
 
-const { authenticate } = require("../middleware/auth.middleware.js");
-const { authorizeRoles } = require("../middleware/role.middleware.js");
+const { authenticate } = require("../Middlewares/auth.middleware.js");
+const { authorizeRoles } = require("../Middlewares/Role.middleware.js");
 
 const router = express.Router();
 
 // Admin
-router.post("/api/admin/register", registerAdmin);
-router.post("/api/admin/login", loginAdmin);
+router.post("/admin/signup", registerAdmin);
+router.post("/admin/login", loginAdmin);
 
 // // Tenant
 // router.post("/tenant/register", registerTenant);
@@ -27,4 +27,4 @@ router.get(
   },
 );
 
-export default router;
+module.exports = router;
