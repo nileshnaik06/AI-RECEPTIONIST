@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Bot, MessageCircle, Send, X, Mic, Volume2, Monitor, Smartphone, Sparkles, Wifi, WifiOff } from 'lucide-react';
+import { Loader2, Bot, MessageCircle, Send, X, Mic, Volume2, Monitor, Smartphone, Sparkles, Wifi, WifiOff, Settings } from 'lucide-react';
 import useClinicStore from '../store/useClinicStore';
 import { useToast } from '../components/shared/Toast';
 import { widgetSchema } from '../lib/validators';
@@ -193,6 +193,21 @@ export default function WidgetSettings() {
   const [activeSection, setActiveSection] = useState('Appearance');
   const [previewViewport, setPreviewViewport] = useState('desktop');
   const [previewMode, setPreviewMode] = useState('open');
+  const [isPreviewMenuOpen, setIsPreviewMenuOpen] = useState(false);
+  const previewMenuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (previewMenuRef.current && !previewMenuRef.current.contains(event.target)) {
+        setIsPreviewMenuOpen(false);
+      }
+    }
+
+    if (isPreviewMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isPreviewMenuOpen]);
 
   const { register, handleSubmit, watch, setValue, reset, formState: { isDirty, isSubmitting } } = useForm({
     resolver: zodResolver(widgetSchema),
@@ -420,60 +435,89 @@ export default function WidgetSettings() {
           {/* ── Right: Live Preview ───────────────────────────── */}
           <div className="flex flex-col gap-3 sticky top-6 h-fit">
             <div className="preview-studio-card p-5">
-              <div className="mb-4">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={14} className="text-primary" />
-                  <h3 className="text-h4 text-text-primary">Live Preview Studio</h3>
+              <div className="mb-4 flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={14} className="text-primary" />
+                    <h3 className="text-h4 text-text-primary">Live Preview Studio</h3>
+                  </div>
+                  <p className="text-xs text-text-muted mt-1">
+                    Adaptive widget simulation with premium UI styling.
+                  </p>
                 </div>
-                <p className="text-xs text-text-muted mt-1">
-                  Adaptive widget simulation with premium UI styling.
-                </p>
+                <div className="relative" ref={previewMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsPreviewMenuOpen(!isPreviewMenuOpen)}
+                    className="p-2 rounded-md hover:bg-surface-secondary transition-colors text-text-muted hover:text-text-primary"
+                    title="Preview settings"
+                  >
+                    <Settings size={16} />
+                  </button>
+
+                  {isPreviewMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-md shadow-lg z-50 min-w-56">
+                      <div className="p-3 space-y-3">
+                        {/* Viewport selection */}
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wide text-text-muted mb-2 font-medium">Viewport</p>
+                          <div className="preview-segmented-control">
+                            {PREVIEW_VIEWPORTS.map(({ key, label, icon: Icon }) => (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() => {
+                                  setPreviewViewport(key);
+                                  setIsPreviewMenuOpen(false);
+                                }}
+                                className={cn(
+                                  'preview-segmented-btn',
+                                  previewViewport === key
+                                    ? 'bg-primary-light text-primary shadow-sm'
+                                    : 'text-text-muted hover:text-text-primary'
+                                )}
+                              >
+                                <Icon size={12} />
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="border-t border-border" />
+
+                        {/* Widget state selection */}
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wide text-text-muted mb-2 font-medium">Widget State</p>
+                          <div className="preview-segmented-control">
+                            {PREVIEW_MODES.map(({ key, label, icon: Icon }) => (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() => {
+                                  setPreviewMode(key);
+                                  setIsPreviewMenuOpen(false);
+                                }}
+                                className={cn(
+                                  'preview-segmented-btn capitalize',
+                                  previewMode === key
+                                    ? 'bg-primary-light text-primary shadow-sm'
+                                    : 'text-text-muted hover:text-text-primary'
+                                )}
+                              >
+                                <Icon size={12} />
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-3 mb-4">
-                <div>
-                  <p className="text-[11px] uppercase tracking-wide text-text-muted mb-1.5">Viewport</p>
-                  <div className="preview-segmented-control">
-                    {PREVIEW_VIEWPORTS.map(({ key, label, icon: Icon }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setPreviewViewport(key)}
-                        className={cn(
-                          'preview-segmented-btn',
-                          previewViewport === key
-                            ? 'bg-surface text-text-primary shadow-sm'
-                            : 'text-text-muted hover:text-text-primary'
-                        )}
-                      >
-                        <Icon size={12} />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-[11px] uppercase tracking-wide text-text-muted mb-1.5">Widget State</p>
-                  <div className="preview-segmented-control">
-                    {PREVIEW_MODES.map(({ key, label, icon: Icon }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setPreviewMode(key)}
-                        className={cn(
-                          'preview-segmented-btn capitalize',
-                          previewMode === key
-                            ? 'bg-surface text-text-primary shadow-sm'
-                            : 'text-text-muted hover:text-text-primary'
-                        )}
-                      >
-                        <Icon size={12} />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className="mb-4">
               </div>
 
               <div className="flex justify-center">

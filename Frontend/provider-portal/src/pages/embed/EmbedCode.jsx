@@ -28,37 +28,37 @@ import {
 // ─── Default widget config ─────────────────────────────────────────────────
 const DEFAULT_CONFIG = {
   position: 'bottom-right',
-  theme:    'light',
-  color:    '#1A56DB',
+  theme: 'light',
+  color: '#1A56DB',
   greeting: 'Hi! How can I help you today?',
 };
 
 // ─── Sidebar nav sections ──────────────────────────────────────────────────
 const NAV_SECTIONS = [
-  { id: 'api-key',      icon: Shield,    label: 'API Key' },
+  { id: 'api-key', icon: Shield, label: 'API Key' },
   { id: 'configurator', icon: Settings2, label: 'Configurator' },
-  { id: 'snippet',      icon: Code2,     label: 'Embed Snippet' },
-  { id: 'test',         icon: Activity,  label: 'Test & Verify' },
-  { id: 'security',     icon: Shield,    label: 'Security' },
-  { id: 'checklist',    icon: Rocket,    label: 'Go Live' },
-  { id: 'faq',          icon: HelpCircle,label: 'FAQ' },
+  { id: 'snippet', icon: Code2, label: 'Embed Snippet' },
+  { id: 'test', icon: Activity, label: 'Test & Verify' },
+  { id: 'security', icon: Shield, label: 'Security' },
+  { id: 'checklist', icon: Rocket, label: 'Go Live' },
+  { id: 'faq', icon: HelpCircle, label: 'FAQ' },
 ];
 
 // ─── Main EmbedCode Page ────────────────────────────────────────────────────
 export default function EmbedCode() {
   const { getApiKey, regenerateApiKey } = useAuthStore();
   const apiKey = getApiKey();
-  const toast   = useToast();
+  const toast = useToast();
 
   // State
-  const [revealed,    setRevealed]    = useState(false);
-  const [regenOpen,   setRegenOpen]   = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [regenOpen, setRegenOpen] = useState(false);
   const [activePlatform, setActivePlatform] = useState('HTML');
-  const [testUrl,     setTestUrl]     = useState('');
-  const [testUrlErr,  setTestUrlErr]  = useState('');
-  const [config,      setConfig]      = useState(DEFAULT_CONFIG);
-  const [domains,     setDomains]     = useState([]);
-  const [checked,     setChecked]     = useState(new Set());
+  const [testUrl, setTestUrl] = useState('');
+  const [testUrlErr, setTestUrlErr] = useState('');
+  const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [domains, setDomains] = useState([]);
+  const [checked, setChecked] = useState(new Set());
   const [activeSection, setActiveSection] = useState(null);
 
   const connected = true; // In production: derive from real API call
@@ -97,7 +97,7 @@ export default function EmbedCode() {
     <div className="flex gap-6 max-w-6xl">
 
       {/* ── Sticky Sidebar Navigation ──────────────────────────── */}
-      <aside className="hidden lg:flex flex-col gap-1 w-44 flex-shrink-0 sticky top-6 self-start">
+      <aside className="hidden lg:flex flex-col gap-1 w-44 flex-shrink-0 sticky top-20 self-start">
         <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider px-2 mb-2">
           On this page
         </p>
