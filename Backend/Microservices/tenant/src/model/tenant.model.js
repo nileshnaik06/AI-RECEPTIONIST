@@ -100,6 +100,6 @@ const tenantSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-const tenantModel = mongoose.Model("Tenant", tenantSchema);
+const tenantModel = mongoose.model("Tenant", tenantSchema);
 
 module.exports = tenantModel;
