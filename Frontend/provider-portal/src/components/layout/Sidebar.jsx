@@ -45,7 +45,6 @@ const NAV_GROUPS = [
   {
     label: 'Account',
     items: [
-      { path: '/api-security', label: 'API & Security', icon: Shield },
       { path: '/billing', label: 'Billing', icon: CreditCard, badge: 'Pro' },
     ],
   },
