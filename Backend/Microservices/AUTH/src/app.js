@@ -1,7 +1,50 @@
-const express = require("express");
-const app = express();
-const authroutes = require("./Routes/auth.routes");
+// src/app.js
+const express = require('express')
+const cors = require('cors')
+const helmet = require('helmet')
+const morgan = require('morgan')
+const cookieParser = require('cookie-parser')
+const rateLimit = require('express-rate-limit')
+const errorHandler = require('./Middlewares/error.middleware.js')
+const authRoutes = require('./Routes/auth.routes.js')
 
-app.use(express.json());
-app.use("/api/auth", authroutes);
-module.exports = app;
+const app = express()
+app.use(cookieParser())
+
+// Security headers — helmet sets these automatically
+app.use(helmet())
+
+// CORS — allow only our frontend
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true
+}))
+
+// Rate limiting — max 100 requests per 15 minutes per IP
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: 'Too many requests, please try again later'
+})
+app.use('/api', limiter)
+
+// Request logging — only in development
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'))
+}
+
+// Body parsing — understand JSON request bodies
+app.use(express.json({ limit: '16kb' }))
+app.use(express.urlencoded({ extended: true, limit: '16kb' }))
+
+// Health check — always useful
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', environment: process.env.NODE_ENV })
+})
+
+app.use('/api/auth', authRoutes)
+
+// Global error handler — must be last
+app.use(errorHandler)
+
+module.exports = app

@@ -1,30 +1,25 @@
+// src/routes/auth.routes.js
 const express = require("express");
 const {
-  registerAdmin,
-  loginAdmin,
+  signup,
+  login,
+  logout,
+  getMe,
 } = require("../controllers/auth.controller.js");
-
-const { authenticate } = require("../Middlewares/auth.middleware.js");
-const { authorizeRoles } = require("../Middlewares/Role.middleware.js");
+const {protect} = require("../Middlewares/auth.middleware.js"); 
+const {
+  validateSignup,
+  validateLogin,
+} = require("../Middlewares/validate.middleware.js");
 
 const router = express.Router();
 
-// Admin
-router.post("/admin/signup", registerAdmin);
-router.post("/admin/login", loginAdmin);
+// Public routes
+router.post("/signup", validateSignup, signup);
+router.post("/login", validateLogin, login);
+router.post("/logout", logout);
 
-// // Tenant
-// router.post("/tenant/register", registerTenant);
-// router.post("/tenant/login", loginTenant);
-
-// Protected route example
-router.get(
-  "/admin/dashboard",
-  authenticate,
-  authorizeRoles("admin"),
-  (req, res) => {
-    res.json({ message: "Welcome Admin" });
-  },
-);
+// Protected routes — must be logged in
+router.get("/me", protect, getMe);
 
 module.exports = router;
