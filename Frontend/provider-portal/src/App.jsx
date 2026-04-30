@@ -18,7 +18,7 @@ const Appointments = lazy(() => import('./pages/Appointments'));
 const ChatLogs     = lazy(() => import('./pages/ChatLogs'));
 const FAQs         = lazy(() => import('./pages/FAQs'));
 const WidgetSettings = lazy(() => import('./pages/WidgetSettings'));
-const EmbedCode    = lazy(() => import('./pages/EmbedCode'));
+const EmbedCode    = lazy(() => import('./pages/embed/EmbedCode'));
 const ClinicSettings = lazy(() => import('./pages/ClinicSettings'));
 const ApiSecurity  = lazy(() => import('./pages/ApiSecurity'));
 const WorkingHours = lazy(() => import('./pages/WorkingHours'));
