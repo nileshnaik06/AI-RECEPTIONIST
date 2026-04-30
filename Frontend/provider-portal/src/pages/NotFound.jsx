@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, Home, LayoutDashboard, Search, Sparkles } from 'lucide-react';
+import { ArrowLeft, Home, Search, Sparkles } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
 
@@ -106,15 +106,20 @@ export default function NotFound() {
 
           <motion.section
             variants={itemVariants}
-            animate={reduceMotion ? undefined : { y: [0, -6, 0] }}
-            transition={reduceMotion ? undefined : { duration: 7, repeat: Infinity, ease: 'easeInOut' }}
-            className="relative"
+            animate={reduceMotion ? undefined : { y: [0, -4] }}
+            transition={
+              reduceMotion
+                ? undefined
+                : { duration: 5.5, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }
+            }
+            style={reduceMotion ? undefined : { willChange: 'transform' }}
+            className="relative transform-gpu"
           >
-            <div className="absolute inset-0 -z-10 rounded-[2rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0.55))] blur-xl dark:bg-[linear-gradient(180deg,rgba(22,27,34,0.88),rgba(22,27,34,0.58))]" />
+            <div className="absolute inset-0 -z-10 rounded-[2rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0.55))] blur-lg dark:bg-[linear-gradient(180deg,rgba(22,27,34,0.88),rgba(22,27,34,0.58))]" />
 
-            <div className="relative overflow-hidden rounded-[2rem] border border-border bg-surface/90 p-6 backdrop-blur-xl md:p-8">
-              <div className="absolute right-0 top-0 h-36 w-36 rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
-              <div className="absolute bottom-0 left-0 h-28 w-28 rounded-full bg-success/10 blur-3xl" aria-hidden="true" />
+            <div className="relative overflow-hidden rounded-[2rem] border border-border bg-surface/90 p-6 backdrop-blur-md md:p-8">
+              <div className="absolute right-0 top-0 h-36 w-36 rounded-full bg-primary/10 blur-2xl" aria-hidden="true" />
+              <div className="absolute bottom-0 left-0 h-28 w-28 rounded-full bg-success/10 blur-2xl" aria-hidden="true" />
 
               <div className="relative space-y-6 text-left">
                 <div className="flex items-center justify-between gap-4">
