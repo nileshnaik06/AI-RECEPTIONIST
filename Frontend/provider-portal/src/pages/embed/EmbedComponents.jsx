@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { cn, copyToClipboard } from '../../lib/utils';
 import {
-  FAQ_ITEMS, CHECKLIST_ITEMS, MOCK_STATS,
+  FAQ_ITEMS, CHECKLIST_ITEMS,
   POSITIONS, THEMES, PRESET_COLORS, PLATFORM_META, PLATFORMS
 } from './embedData';
 
@@ -247,7 +247,7 @@ export function WidgetPreview({ config }) {
       'h-52'
     )}>
       {/* Mock site content */}
-      <div className="p-4 opacity-30 pointer-events-none select-none">
+      <div className="p-4 opacity-30 pointer-events-none select-none mt-8">
         <div className="h-2 bg-text-muted rounded w-32 mb-2" />
         <div className="h-2 bg-text-muted rounded w-48 mb-2" />
         <div className="h-2 bg-text-muted rounded w-40" />
