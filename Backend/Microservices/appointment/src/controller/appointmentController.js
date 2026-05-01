@@ -112,7 +112,7 @@ const updateAppointmentStatus = async (req, res) => {
     const appointment = await Appointment.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.tenant._id },
       { status },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!appointment) {
