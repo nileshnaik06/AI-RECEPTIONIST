@@ -3,12 +3,12 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const app = require("./src/app");
-const CONNECTTODB = require("./src/db/db");
+const connectDB = require("./src/db/db");
 
 // Middleware
 app.use(cors({ origin: "*" }));
 
 // DB Connection
-CONNECTTODB();
+connectDB();
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

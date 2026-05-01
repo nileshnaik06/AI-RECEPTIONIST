@@ -1,15 +1,23 @@
 const express = require("express");
+const cors    = require("cors");
+const appointmentRoutes = require("./Routes/appointments.route");
+
 const app = express();
-const routes = require("./Routes/appointments.route");
 
+app.use(cors({ origin: "*" }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Routes
+app.use("/api/appointments", appointmentRoutes);
 
-app.use("/api/appointments",routes);
-// app.use('/api/admin/faqs', require('./routes/faqs'));
+app.get("/", (req, res) => res.json({ status: "Appointment Service running 🚀" }));
 
-// Health check
-app.get("/", (req, res) => res.json({ status: "API running" }));
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal server error",
+  });
+});
 
 module.exports = app;
