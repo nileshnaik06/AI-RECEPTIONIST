@@ -78,6 +78,6 @@ const TenantSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const tenantModel = mongoose.model("Tenant", tenantSchema);
+const tenantModel = mongoose.model("Tenant", TenantSchema);
 
 module.exports = tenantModel;
