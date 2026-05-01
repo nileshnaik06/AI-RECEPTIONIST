@@ -1,172 +1,180 @@
-const Appointment = require('../model/appointment.model');
+const Appointment = require("../model/appointment.model");
+const asyncHandler = require("../utils/asyncHandler");
 
-// Available time slots — hardcoded for MVP
-const AVAILABLE_SLOTS = ['10:00 AM', '11:00 AM', '12:00 PM', '02:00 PM', '03:00 PM', '04:00 PM'];
+const AVAILABLE_SLOTS = [
+  "10:00 AM", "11:00 AM", "12:00 PM",
+  "02:00 PM", "03:00 PM", "04:00 PM",
+];
 
-// GET /api/admin/appointments
-const getAllAppointments = async (req, res) => {
-  try {
-    const { status, date } = req.query;
+// ─────────────────────────────────────────
+// GET /api/appointments
+// Admin — get all appointments for this clinic
+// ─────────────────────────────────────────
+const getAllAppointments = asyncHandler(async (req, res) => {
+  const user_id = String(req.user.id);
+  const { status, date } = req.query;
 
-    const filter = { tenantId: req.tenant._id };
-    if (status) filter.status = status;
-    if (date) filter.date = date;
+  const filter = { user_id };
+  if (status) filter.status = status;
+  if (date)   filter.date   = date;
 
-    const appointments = await Appointment.find(filter).sort({ createdAt: -1 });
+  const appointments = await Appointment.find(filter).sort({ createdAt: -1 });
 
-    res.json({ success: true, count: appointments.length, data: appointments });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  res.json({ success: true, count: appointments.length, data: appointments });
+});
+
+// ─────────────────────────────────────────
+// GET /api/appointments/:id
+// Admin — get single appointment
+// ─────────────────────────────────────────
+const getAppointmentById = asyncHandler(async (req, res) => {
+  const user_id = String(req.user.id);
+
+  const appointment = await Appointment.findOne({
+    _id: req.params.id,
+    user_id,
+  });
+
+  if (!appointment) {
+    return res.status(404).json({ success: false, message: "Appointment not found" });
   }
-};
 
-// GET /api/admin/appointments/:id
-const getAppointmentById = async (req, res) => {
-  try {
-    const appointment = await Appointment.findOne({
-      _id: req.params.id,
-      tenantId: req.tenant._id,
+  res.json({ success: true, data: appointment });
+});
+
+// ─────────────────────────────────────────
+// POST /api/appointments
+// Widget/Chat — book appointment via API key
+// ─────────────────────────────────────────
+const createAppointment = asyncHandler(async (req, res) => {
+  // user_id comes from API key middleware
+  const user_id = String(req.user_id);
+
+  const { patientName, phone, date, time, service, sessionId, notes } = req.body;
+
+  // Validate required fields
+  if (!patientName || !date || !time || !service) {
+    return res.status(400).json({
+      success: false,
+      message: "patientName, date, time and service are required",
     });
-
-    if (!appointment) {
-      return res.status(404).json({ success: false, message: 'Appointment not found' });
-    }
-
-    res.json({ success: true, data: appointment });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
-};
 
-// POST /api/appointments  (called by widget/chat system)
-const createAppointment = async (req, res) => {
-  try {
-    const { patientName, phone, date, time, service, sessionId, notes } = req.body;
-
-    // Validate required fields
-    if (!patientName || !date || !time || !service) {
-      return res.status(400).json({
-        success: false,
-        message: 'patientName, date, time and service are required',
-      });
-    }
-
-    // Validate time slot
-    if (!AVAILABLE_SLOTS.includes(time)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid time slot. Available slots: ${AVAILABLE_SLOTS.join(', ')}`,
-      });
-    }
-
-    // Conflict check — same clinic, same date, same time
-    const conflict = await Appointment.findOne({
-      tenantId: req.tenant._id,
-      date,
-      time,
-      status: { $ne: 'cancelled' }, // cancelled slots are free again
+  // Validate time slot
+  if (!AVAILABLE_SLOTS.includes(time)) {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid time. Available slots: ${AVAILABLE_SLOTS.join(", ")}`,
     });
+  }
 
-    if (conflict) {
-      return res.status(409).json({
-        success: false,
-        message: `Slot ${time} on ${date} is already booked. Please choose another time.`,
-        availableSlots: AVAILABLE_SLOTS,
-      });
-    }
+  // Conflict check — same clinic, same date, same time, not cancelled
+  const conflict = await Appointment.findOne({
+    user_id,
+    date,
+    time,
+    status: { $ne: "cancelled" },
+  });
 
-    const appointment = await Appointment.create({
-      tenantId: req.tenant._id,
-      patientName,
-      phone: phone || '',
-      date,
-      time,
-      service,
-      sessionId: sessionId || '',
-      notes: notes || '',
-      status: 'pending',
+  if (conflict) {
+    return res.status(409).json({
+      success: false,
+      message: `Slot ${time} on ${date} is already booked. Please choose another time.`,
+      availableSlots: AVAILABLE_SLOTS,
     });
+  }
 
-    res.status(201).json({
-      success: true,
-      message: 'Appointment booked successfully',
-      data: appointment,
+  const appointment = await Appointment.create({
+    user_id,
+    patientName,
+    phone:     phone     || "",
+    date,
+    time,
+    service,
+    sessionId: sessionId || "",
+    notes:     notes     || "",
+    status:    "pending",
+  });
+
+  res.status(201).json({
+    success: true,
+    message: "Appointment booked successfully",
+    data: appointment,
+  });
+});
+
+// ─────────────────────────────────────────
+// PATCH /api/appointments/:id/status
+// Admin — update appointment status
+// ─────────────────────────────────────────
+const updateAppointmentStatus = asyncHandler(async (req, res) => {
+  const user_id = String(req.user.id);
+  const { status } = req.body;
+
+  if (!["pending", "confirmed", "cancelled"].includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: "Status must be pending, confirmed or cancelled",
     });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
-};
 
-// PATCH /api/admin/appointments/:id/status
-const updateAppointmentStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
+  const appointment = await Appointment.findOneAndUpdate(
+    { _id: req.params.id, user_id },
+    { status },
+    { returnDocument: 'after' }
+  );
 
-    if (!['pending', 'confirmed', 'cancelled'].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Status must be pending, confirmed or cancelled',
-      });
-    }
-
-    const appointment = await Appointment.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.tenant._id },
-      { status },
-      { returnDocument: 'after' }
-    );
-
-    if (!appointment) {
-      return res.status(404).json({ success: false, message: 'Appointment not found' });
-    }
-
-    res.json({ success: true, data: appointment });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  if (!appointment) {
+    return res.status(404).json({ success: false, message: "Appointment not found" });
   }
-};
 
-// DELETE /api/admin/appointments/:id
-const deleteAppointment = async (req, res) => {
-  try {
-    const appointment = await Appointment.findOneAndDelete({
-      _id: req.params.id,
-      tenantId: req.tenant._id,
-    });
+  res.json({ success: true, data: appointment });
+});
 
-    if (!appointment) {
-      return res.status(404).json({ success: false, message: 'Appointment not found' });
-    }
+// ─────────────────────────────────────────
+// DELETE /api/appointments/:id
+// Admin — delete appointment
+// ─────────────────────────────────────────
+const deleteAppointment = asyncHandler(async (req, res) => {
+  const user_id = String(req.user.id);
 
-    res.json({ success: true, message: 'Appointment deleted' });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  const appointment = await Appointment.findOneAndDelete({
+    _id: req.params.id,
+    user_id,
+  });
+
+  if (!appointment) {
+    return res.status(404).json({ success: false, message: "Appointment not found" });
   }
-};
 
-// GET /api/admin/appointments/available-slots?date=2026-05-03
-const getAvailableSlots = async (req, res) => {
-  try {
-    const { date } = req.query;
+  res.json({ success: true, message: "Appointment deleted" });
+});
 
-    if (!date) {
-      return res.status(400).json({ success: false, message: 'date query param required' });
-    }
+// ─────────────────────────────────────────
+// GET /api/appointments/available-slots?date=2026-05-03
+// Admin + Widget — check free slots for a date
+// ─────────────────────────────────────────
+const getAvailableSlots = asyncHandler(async (req, res) => {
+  const { date } = req.query;
 
-    // Find booked slots for this date
-    const booked = await Appointment.find({
-      tenantId: req.tenant._id,
-      date,
-      status: { $ne: 'cancelled' },
-    }).select('time');
+  // Works for both JWT (admin) and API key (widget)
+  const user_id = String(req.user?.id || req.user_id);
 
-    const bookedTimes = booked.map((a) => a.time);
-    const available = AVAILABLE_SLOTS.filter((slot) => !bookedTimes.includes(slot));
-
-    res.json({ success: true, date, available, booked: bookedTimes });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  if (!date) {
+    return res.status(400).json({ success: false, message: "date query param required" });
   }
-};
+
+  const booked = await Appointment.find({
+    user_id,
+    date,
+    status: { $ne: "cancelled" },
+  }).select("time");
+
+  const bookedTimes = booked.map((a) => a.time);
+  const available   = AVAILABLE_SLOTS.filter((slot) => !bookedTimes.includes(slot));
+
+  res.json({ success: true, date, available, booked: bookedTimes });
+});
 
 module.exports = {
   getAllAppointments,

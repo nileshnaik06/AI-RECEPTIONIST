@@ -23,6 +23,7 @@ router.get("/clinic-info", verifyApiKey, (req, res) => {
   res.json({
     success: true,
     data: {
+      user_id: req.tenant.user_id,
       clinicName: req.tenant.clinicName,
       phone: req.tenant.phone,
       workingHrs: req.tenant.workingHrs,
