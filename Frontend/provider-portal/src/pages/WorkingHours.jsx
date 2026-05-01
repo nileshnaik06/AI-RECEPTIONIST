@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock3,
@@ -59,17 +59,89 @@ function reasonLabel(reason) {
   return 'Closed now';
 }
 
+function WorkingHoursSkeleton() {
+  return (
+    <div className="max-w-[1400px] space-y-6 pb-24 animate-pulse" aria-busy="true" aria-live="polite">
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+        <div>
+          <div className="h-8 w-56 rounded-md skeleton" />
+          <div className="h-4 w-[28rem] max-w-full rounded-md skeleton mt-3" />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="h-9 w-40 rounded-md skeleton" />
+          <div className="h-9 w-64 rounded-md skeleton" />
+        </div>
+      </div>
+
+      <div className="h-20 rounded-md skeleton" />
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
+        <div className="space-y-4">
+          <div className="bg-surface border border-border rounded-md">
+            <div className="flex gap-1 p-2 border-b border-border">
+              <div className="h-8 w-28 rounded-md skeleton" />
+              <div className="h-8 w-28 rounded-md skeleton" />
+              <div className="h-8 w-28 rounded-md skeleton" />
+              <div className="h-8 w-20 rounded-md skeleton" />
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="h-14 rounded-md skeleton" />
+              <div className="space-y-3">
+                {Array.from({ length: 7 }).map((_, index) => (
+                  <div key={index} className="border border-border rounded-md p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-2">
+                        <div className="h-4 w-24 rounded-md skeleton" />
+                        <div className="h-3 w-16 rounded-md skeleton" />
+                      </div>
+                      <div className="h-6 w-11 rounded-full skeleton" />
+                    </div>
+                    <div className="h-10 rounded-md skeleton" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside className="space-y-4">
+          <div className="bg-surface border border-border rounded-md p-4 space-y-4">
+            <div className="h-4 w-48 rounded-md skeleton" />
+            <div className="h-9 rounded-md skeleton" />
+            <div className="h-24 rounded-md skeleton" />
+            <div className="space-y-2">
+              <div className="h-3 w-32 rounded-md skeleton" />
+              <div className="h-3 w-40 rounded-md skeleton" />
+              <div className="h-3 w-28 rounded-md skeleton" />
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div className="h-20 rounded-md skeleton" />
+    </div>
+  );
+}
+
 export default function WorkingHours() {
   const { workingHours, updateWorkingHoursConfig, completeSetupStep } = useClinicStore();
   const toast = useToast();
 
   const source = useMemo(() => normalizeWorkingHoursConfig(workingHours), [workingHours]);
   const [draft, setDraft] = useState(source);
+  const [isReady, setIsReady] = useState(false);
   const [activeSection, setActiveSection] = useState('Weekly Hours');
   const [previewAt, setPreviewAt] = useState(asDateTimeLocal(new Date()));
   const [saving, setSaving] = useState(false);
   const [copyFrom, setCopyFrom] = useState('Monday');
   const [copyTo, setCopyTo] = useState('Tuesday');
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setIsReady(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   const validation = useMemo(() => validateWorkingHoursConfig(draft), [draft]);
   const coverage = useMemo(() => summarizeCoverage(draft), [draft]);
@@ -79,8 +151,8 @@ export default function WorkingHours() {
     [draft, previewAt]
   );
   const isDirty = useMemo(
-    () => JSON.stringify(source) !== JSON.stringify(draft),
-    [source, draft]
+    () => isReady && JSON.stringify(source) !== JSON.stringify(draft),
+    [source, draft, isReady]
   );
 
   const updateDay = (day, updater) => {
@@ -241,17 +313,28 @@ export default function WorkingHours() {
     }
 
     setSaving(true);
-    await sleep(450);
-    updateWorkingHoursConfig(draft);
-    completeSetupStep('workingHours');
-    setSaving(false);
-    toast.success('Working hours updated.');
+    try {
+      await sleep(450);
+      const normalizedDraft = normalizeWorkingHoursConfig(draft);
+      updateWorkingHoursConfig(normalizedDraft);
+      setDraft(normalizedDraft);
+      completeSetupStep('workingHours');
+      toast.success('Working hours updated.');
+    } catch {
+      toast.error('Failed to save working hours. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDiscard = () => {
     setDraft(source);
     toast.info('Changes discarded.');
   };
+
+  if (!isReady) {
+    return <WorkingHoursSkeleton />;
+  }
 
   return (
     <div className="max-w-[1400px] space-y-6 pb-24">
@@ -718,47 +801,49 @@ export default function WorkingHours() {
         </aside>
       </div>
 
-      <div className="sticky bottom-4 z-20">
-        <div className="bg-surface border border-border rounded-md p-3 shadow-md flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-text-primary">
-              {isDirty ? 'You have unsaved changes.' : 'All changes saved.'}
-            </p>
-            <p className="text-xs text-text-muted">
-              {validation.valid
-                ? 'Schedule is valid and ready to publish.'
-                : `${validation.errors.length} validation issue(s) need attention.`}
-            </p>
-          </div>
-          <div className="sm:ml-auto flex items-center gap-2">
-            <button
-              onClick={handleDiscard}
-              disabled={!isDirty || saving}
-              className="h-9 px-3 text-sm border border-border rounded-md disabled:opacity-60 inline-flex items-center gap-2"
-            >
-              <RotateCcw size={14} />
-              Discard
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!isDirty || saving || !validation.valid}
-              className="h-9 px-4 text-sm font-semibold bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-60 inline-flex items-center gap-2"
-            >
-              {saving ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save size={14} />
-                  Save Working Hours
-                </>
-              )}
-            </button>
+      {isDirty && (
+        <div className="sticky bottom-4 z-20">
+          <div className="bg-surface border border-border rounded-md p-3 shadow-md flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text-primary">
+                You have unsaved changes.
+              </p>
+              <p className="text-xs text-text-muted">
+                {validation.valid
+                  ? 'Schedule is valid and ready to publish.'
+                  : `${validation.errors.length} validation issue(s) need attention.`}
+              </p>
+            </div>
+            <div className="sm:ml-auto flex items-center gap-2">
+              <button
+                onClick={handleDiscard}
+                disabled={saving}
+                className="h-9 px-3 text-sm border border-border rounded-md disabled:opacity-60 inline-flex items-center gap-2"
+              >
+                <RotateCcw size={14} />
+                Discard
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !validation.valid}
+                className="h-9 px-4 text-sm font-semibold bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-60 inline-flex items-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={14} />
+                    Save Working Hours
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

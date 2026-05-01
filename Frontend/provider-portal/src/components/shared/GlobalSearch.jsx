@@ -18,7 +18,6 @@ function buildSearchIndex(appointments, faqs) {
     { type: 'page', label: 'Widget Settings', path: '/widget-settings', icon: Settings  },
     { type: 'page', label: 'Embed Code',       path: '/embed',           icon: Settings  },
     { type: 'page', label: 'Clinic Settings', path: '/settings',        icon: Settings  },
-    { type: 'page', label: 'API & Security',  path: '/api-security',    icon: Settings  },
     // FAQs
     ...faqs.map((f) => ({
       type:    'faq',

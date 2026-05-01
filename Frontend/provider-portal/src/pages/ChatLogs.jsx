@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Bot, MessageSquare, Download, Clock, Calendar,
-  Filter, Copy, Smile, Frown, Meh, Globe, Smartphone, FileText, Check, Code
+  Filter, Copy, Smile, Frown, Meh, Globe, Smartphone, FileText, Check, Code, Maximize2, Minimize2
 } from 'lucide-react';
 import { StatusBadge } from '../components/shared/StatusBadge';
 import { EmptyState } from '../components/shared/EmptyState';
@@ -128,6 +128,7 @@ export default function ChatLogs() {
   const [transcriptSearch, setTranscriptSearch] = useState('');
   const [outcomeFilter, setOutcomeFilter] = useState('All');
   const [sentimentFilter, setSentimentFilter] = useState('All');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const stats = useMemo(() => computeLogStats(sessions), [sessions]);
 
@@ -165,6 +166,8 @@ export default function ChatLogs() {
         if (currentIndex > 0) {
           setActiveId(filteredSessions[currentIndex - 1].id);
         }
+      } else if (e.key === 'Escape') {
+         setIsFullscreen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -183,38 +186,52 @@ export default function ChatLogs() {
     URL.revokeObjectURL(url);
   };
 
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
   return (
-    <div className="flex flex-col gap-6 max-w-[1400px] mx-auto h-full">
+    <div className={cn(
+        "flex flex-col gap-6 mx-auto transition-all duration-300",
+        isFullscreen ? "fixed inset-0 z-50 bg-background p-6 w-full h-full" : "max-w-[1400px] h-full"
+    )}>
       {/* ── Top Stats Row ──────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Sessions"
-          value={stats.total}
-          trend="12%" trendUp={true}
-          subtext="Last 30 days"
-        />
-        <StatCard
-          label="Resolution Rate"
-          value={`${stats.resolution}%`}
-          trend="2.4%" trendUp={true}
-          subtext="Resolved without human"
-        />
-        <StatCard
-          label="Avg. Session Time"
-          value={`${stats.avgDur}m`}
-          trend="0.5m" trendUp={false}
-          subtext="Time to resolution"
-        />
-        <StatCard
-          label="Positive Sentiment"
-          value={`${stats.positivePct}%`}
-          trend="5%" trendUp={true}
-          subtext="Based on AI analysis"
-        />
-      </div>
+      {!isFullscreen && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <StatCard
+              label="Total Sessions"
+              value={stats.total}
+              trend="12%" trendUp={true}
+              subtext="Last 30 days"
+            />
+            <StatCard
+              label="Resolution Rate"
+              value={`${stats.resolution}%`}
+              trend="2.4%" trendUp={true}
+              subtext="Resolved without human"
+            />
+            <StatCard
+              label="Avg. Session Time"
+              value={`${stats.avgDur}m`}
+              trend="0.5m" trendUp={false}
+              subtext="Time to resolution"
+            />
+            <StatCard
+              label="Positive Sentiment"
+              value={`${stats.positivePct}%`}
+              trend="5%" trendUp={true}
+              subtext="Based on AI analysis"
+            />
+          </div>
+      )}
 
       {/* ── Main Workspace ──────────────────────────────────────── */}
-      <div className="flex gap-0 border border-border rounded-xl shadow-sm bg-surface overflow-hidden" style={{ height: 'calc(100vh - 240px)', minHeight: '600px' }}>
+      <div className={cn(
+          "flex gap-0 border border-border shadow-sm bg-surface overflow-hidden transition-all duration-300",
+          isFullscreen ? "flex-1 rounded-xl h-full" : "rounded-xl",
+      )}
+      style={!isFullscreen ? { height: 'calc(100vh - 240px)', minHeight: '600px' } : {}}
+      >
 
         {/* ── Left Panel: List & Filters ────────────────────────── */}
         <div className="w-[380px] flex-shrink-0 border-r border-border flex flex-col bg-surface/50">
@@ -226,9 +243,18 @@ export default function ChatLogs() {
                 <MessageSquare size={16} className="text-primary" />
                 Conversations
               </h2>
-              <span className="text-xs font-medium text-text-muted bg-surface-secondary px-2 py-0.5 rounded-full border border-border">
-                {filteredSessions.length} total
-              </span>
+              <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-text-muted bg-surface-secondary px-2 py-0.5 rounded-full border border-border">
+                    {filteredSessions.length} total
+                  </span>
+                  <button
+                    onClick={toggleFullscreen}
+                    className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-secondary rounded-md transition-colors"
+                    title={isFullscreen ? "Exit Fullscreen (Esc)" : "Enter Fullscreen"}
+                  >
+                    {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                  </button>
+              </div>
             </div>
 
             <div className="relative group">
@@ -465,3 +491,4 @@ export default function ChatLogs() {
     </div>
   );
 }
+

@@ -15,7 +15,6 @@ const BREADCRUMB_MAP = {
   '/embed':          ['Chatbot Config', 'Embed Code'],
   '/settings':       ['Clinic', 'Clinic Settings'],
   '/working-hours':  ['Clinic', 'Working Hours'],
-  '/api-security':   ['Account', 'API & Security'],
   '/billing':        ['Account', 'Billing'],
 };
 

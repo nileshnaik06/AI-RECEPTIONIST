@@ -18,11 +18,11 @@ const Appointments = lazy(() => import('./pages/Appointments'));
 const ChatLogs     = lazy(() => import('./pages/ChatLogs'));
 const FAQs         = lazy(() => import('./pages/FAQs'));
 const WidgetSettings = lazy(() => import('./pages/WidgetSettings'));
-const EmbedCode    = lazy(() => import('./pages/EmbedCode'));
+const EmbedCode    = lazy(() => import('./pages/embed/EmbedCode'));
 const ClinicSettings = lazy(() => import('./pages/ClinicSettings'));
-const ApiSecurity  = lazy(() => import('./pages/ApiSecurity'));
 const WorkingHours = lazy(() => import('./pages/WorkingHours'));
 const Billing      = lazy(() => import('./pages/Billing'));
+const NotFound     = lazy(() => import('./pages/NotFound'));
 
 // ─── Route Guards ─────────────────────────────────────────────────────────────
 
@@ -74,13 +74,12 @@ const router = createBrowserRouter([
       { path: '/embed',          element: <Suspense fallback={<PageLoader />}><EmbedCode /></Suspense> },
       { path: '/settings',       element: <Suspense fallback={<PageLoader />}><ClinicSettings /></Suspense> },
       { path: '/working-hours',  element: <Suspense fallback={<PageLoader />}><WorkingHours /></Suspense> },
-      { path: '/api-security',   element: <Suspense fallback={<PageLoader />}><ApiSecurity /></Suspense> },
       { path: '/billing',        element: <Suspense fallback={<PageLoader />}><Billing /></Suspense> },
     ],
   },
   {
     path: '*',
-    element: <Navigate to="/dashboard" replace />,
+    element: <Suspense fallback={<PageLoader />}><NotFound /></Suspense>,
   },
 ]);
 
