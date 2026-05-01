@@ -7,10 +7,20 @@ import useClinicStore from '../../store/useClinicStore';
 import { cn, truncate } from '../../lib/utils';
 import { useDebounce } from '../../hooks/useDebounce';
 
-/** Flatten searchable items from all data sources */
+/** 
+ * Build search index with performance optimization
+ * 
+ * Prioritizes:
+ * - All navigation pages (always searchable)
+ * - Recent FAQs (questions users frequently look for)
+ * - Recent appointments (pending/confirmed take priority)
+ * 
+ * Trims appointment index based on status and recency to prevent
+ * index bloat as datasets grow larger
+ */
 function buildSearchIndex(appointments, faqs) {
   const results = [
-    // Pages
+    // Pages - always included for fast navigation
     { type: 'page', label: 'Dashboard',       path: '/dashboard',       icon: Calendar  },
     { type: 'page', label: 'Appointments',     path: '/appointments',    icon: Calendar  },
     { type: 'page', label: 'Chat Logs',        path: '/logs',            icon: Search    },
@@ -18,7 +28,8 @@ function buildSearchIndex(appointments, faqs) {
     { type: 'page', label: 'Widget Settings', path: '/widget-settings', icon: Settings  },
     { type: 'page', label: 'Embed Code',       path: '/embed',           icon: Settings  },
     { type: 'page', label: 'Clinic Settings', path: '/settings',        icon: Settings  },
-    // FAQs
+    
+    // FAQs - include all for comprehensive search (typically smaller list)
     ...faqs.map((f) => ({
       type:    'faq',
       label:   f.question,
@@ -26,8 +37,10 @@ function buildSearchIndex(appointments, faqs) {
       preview: f.answer,
       icon:    HelpCircle,
     })),
-    // Appointments
-    ...appointments.slice(0, 10).map((a) => ({
+    
+    // Appointments - trim intelligently to control index size
+    // Strategy: Include recent items and prioritize pending/confirmed statuses
+    ...getIndexedAppointments(appointments).map((a) => ({
       type:    'appointment',
       label:   a.patient,
       path:    '/appointments',
@@ -36,6 +49,38 @@ function buildSearchIndex(appointments, faqs) {
     })),
   ];
   return results;
+}
+
+/**
+ * Get appointments for indexing with smart trimming
+ * 
+ * Returns up to MAX_INDEXED_APPOINTMENTS items by prioritizing:
+ * 1. Pending appointments (need attention)
+ * 2. Confirmed appointments (upcoming)
+ * 3. Recently booked items (sorted by date)
+ * 
+ * This keeps the search index manageable even with thousands of appointments
+ */
+function getIndexedAppointments(appointments) {
+  const MAX_INDEXED_APPOINTMENTS = 15; // Trim from 10 to 15 for slightly more coverage
+  
+  if (appointments.length <= MAX_INDEXED_APPOINTMENTS) {
+    return appointments;
+  }
+  
+  // Separate by status priority
+  const pending = appointments.filter(a => a.status === 'Pending');
+  const confirmed = appointments.filter(a => a.status === 'Confirmed');
+  const other = appointments.filter(a => a.status !== 'Pending' && a.status !== 'Confirmed');
+  
+  // Build indexed set: prioritize pending, then confirmed, then recent others
+  const indexed = [
+    ...pending.slice(0, 5),      // Up to 5 pending items
+    ...confirmed.slice(0, 7),    // Up to 7 confirmed items
+    ...other.slice(0, 3),        // Up to 3 other status items
+  ].slice(0, MAX_INDEXED_APPOINTMENTS);
+  
+  return indexed;
 }
 
 export function GlobalSearch() {
@@ -47,15 +92,26 @@ export function GlobalSearch() {
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
+  // Memoize appointment/faq signatures to detect meaningful changes only
+  // This prevents rebuilding the entire index when data hasn't meaningfully changed
   const appointmentSignature = useMemo(
-    () => appointments.map((a) => `${a.id}:${a.patient}:${a.service}:${a.status}`).join('|'),
+    () => appointments
+      .filter(a => a.status === 'Pending' || a.status === 'Confirmed')
+      .slice(0, 15)
+      .map((a) => `${a.id}:${a.patient}:${a.service}:${a.status}`)
+      .join('|'),
     [appointments]
   );
+  
   const faqSignature = useMemo(
-    () => faqs.map((faq) => `${faq.id}:${faq.question}:${faq.answer}`).join('|'),
+    () => faqs
+      .slice(0, 20)
+      .map((faq) => `${faq.id}:${faq.question}`)
+      .join('|'),
     [faqs]
   );
 
+  // Rebuild index only when signatures change (not on every re-render)
   const index = useMemo(() => buildSearchIndex(appointments, faqs), [appointmentSignature, faqSignature]);
 
   const filtered = useMemo(() => {

@@ -6,8 +6,12 @@ import {
 } from 'lucide-react';
 import { StatusBadge } from '../components/shared/StatusBadge';
 import { EmptyState } from '../components/shared/EmptyState';
+import { VirtualizedList } from '../components/shared/VirtualizedList';
 import { formatDate, formatTime, cn, copyToClipboard } from '../lib/utils';
 import { RICH_CHAT_SESSIONS, computeLogStats } from '../lib/chatLogsData';
+
+// Virtual list item height in pixels
+const SESSION_ITEM_HEIGHT = 128;
 
 // ─── Sub-Components ───────────────────────────────────────────────────────────
 
@@ -306,23 +310,20 @@ export default function ChatLogs() {
           </div>
 
           {/* List */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            {filteredSessions.length === 0 ? (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <EmptyState
-                  icon={Filter}
-                  title="No sessions found"
-                  description="Try adjusting your filters or search terms."
-                />
-              </motion.div>
-            ) : (
-              filteredSessions.map((session) => (
+          <div className="flex-1 overflow-hidden">
+            <VirtualizedList
+              items={filteredSessions}
+              height={Math.min(700, SESSION_ITEM_HEIGHT * 8)}
+              itemSize={SESSION_ITEM_HEIGHT}
+              activeId={activeId}
+              onSelectItem={setActiveId}
+              emptyMessage="No sessions found"
+              renderItem={(session, isActive, onSelect) => (
                 <button
-                  key={session.id}
-                  onClick={() => setActiveId(session.id)}
+                  onClick={onSelect}
                   className={cn(
-                    'w-full text-left p-4 border-b border-border transition-colors duration-150 relative group',
-                    activeId === session.id
+                    'w-full text-left p-4 border-b border-border transition-colors duration-150 relative group h-full box-border',
+                    isActive
                       ? 'bg-primary/5 border-l-2 border-l-primary shadow-[inset_0_1px_4px_rgba(0,0,0,0.02)]'
                       : 'hover:bg-surface-secondary border-l-2 border-l-transparent'
                   )}
@@ -341,7 +342,7 @@ export default function ChatLogs() {
 
                   <p className={cn(
                     "text-sm font-medium truncate mb-2 transition-colors",
-                    activeId === session.id ? "text-primary" : "text-text-primary group-hover:text-primary/80"
+                    isActive ? "text-primary" : "text-text-primary group-hover:text-primary/80"
                   )}>
                     "{session.preview}"
                   </p>
@@ -361,8 +362,8 @@ export default function ChatLogs() {
                     </span>
                   </div>
                 </button>
-              ))
-            )}
+              )}
+            />
           </div>
         </div>
 

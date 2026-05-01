@@ -3,16 +3,17 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Download, ChevronLeft, ChevronRight,
-  MoreHorizontal, X, CalendarDays, Filter,
+  MoreHorizontal, X, CalendarDays,
 } from 'lucide-react';
 import useClinicStore from '../store/useClinicStore';
 import { StatusBadge } from '../components/shared/StatusBadge';
 import { EmptyState } from '../components/shared/EmptyState';
+import { VirtualizedTable } from '../components/shared/VirtualizedTable';
 import { useToast } from '../components/shared/Toast';
 import { formatDate, formatTime, cn } from '../lib/utils';
 
 const STATUSES = ['All', 'Pending', 'Confirmed', 'Cancelled'];
-const PAGE_SIZE = 10;
+const VIRTUALIZATION_ROW_HEIGHT = 56; // Height of each table row in pixels
 
 // ─── Appointment Detail Drawer ────────────────────────────────────────────────
 
@@ -190,12 +191,11 @@ export default function Appointments() {
   const { appointments, updateAppointmentStatus } = useClinicStore();
   const [search, setSearch]     = useState('');
   const [status, setStatus]     = useState('All');
-  const [page, setPage]         = useState(1);
   const [selected, setSelected] = useState(null);
   const [selectedRows, setSelectedRows] = useState(new Set());
   const toast = useToast();
 
-  // Filter logic
+  // Filter logic - memoized to prevent unnecessary recalculations
   const filtered = useMemo(() => {
     return appointments.filter((a) => {
       const matchStatus = status === 'All' || a.status === status;
@@ -206,15 +206,64 @@ export default function Appointments() {
     });
   }, [appointments, status, search]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
+  // Calculate tab counts for display
   const tabCounts = useMemo(() => ({
     All:       appointments.length,
     Pending:   appointments.filter((a) => a.status === 'Pending').length,
     Confirmed: appointments.filter((a) => a.status === 'Confirmed').length,
     Cancelled: appointments.filter((a) => a.status === 'Cancelled').length,
   }), [appointments]);
+
+  // Define table columns - each column maps to appointment properties
+  const columns = useMemo(() => [
+    {
+      key: 'checkbox',
+      header: '',
+      type: 'checkbox',
+      className: 'w-10',
+      render: () => null, // Handled by VirtualizedTable
+    },
+    {
+      key: 'patient',
+      header: 'Patient',
+      className: 'font-medium text-text-primary',
+    },
+    {
+      key: 'phone',
+      header: 'Phone',
+      className: 'font-mono text-xs',
+    },
+    {
+      key: 'service',
+      header: 'Service',
+    },
+    {
+      key: 'date',
+      header: 'Date',
+      render: (value) => formatDate(value),
+    },
+    {
+      key: 'time',
+      header: 'Time',
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (value) => <StatusBadge status={value} />,
+    },
+    {
+      key: 'bookedAt',
+      header: 'Booked At',
+      className: 'text-xs',
+      render: (value) => formatDate(value),
+    },
+    {
+      key: 'actions',
+      header: '',
+      className: 'w-10',
+      render: () => <MoreHorizontal size={16} />,
+    },
+  ], []);
 
   const toggleRow = (id) => {
     setSelectedRows((prev) => {
@@ -230,9 +279,12 @@ export default function Appointments() {
     setSelectedRows(new Set());
   };
 
+  // Calculate viewport height for virtual table (header + 12 rows visible)
+  const tableHeight = Math.min(600, VIRTUALIZATION_ROW_HEIGHT * 12);
+
   return (
     <div className="space-y-4 max-w-[1400px]">
-      {/* ── Page Header ─────────────────────────────────────────── */}
+      {/* ── Page Header ────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-h2 text-text-primary">Appointments</h1>
@@ -266,7 +318,7 @@ export default function Appointments() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              onChange={(e) => { setSearch(e.target.value); }}
               placeholder="Search patients..."
               className="h-9 pl-9 pr-3 w-48 text-sm border border-border rounded-md bg-surface focus:outline-none focus:border-primary"
             />
@@ -274,7 +326,7 @@ export default function Appointments() {
           {/* Status filter */}
           <select
             value={status}
-            onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+            onChange={(e) => { setStatus(e.target.value); }}
             className="h-9 px-3 text-sm border border-border rounded-md bg-surface text-text-secondary focus:outline-none"
           >
             {STATUSES.map((s) => <option key={s}>{s}</option>)}
@@ -286,12 +338,12 @@ export default function Appointments() {
         </div>
       </div>
 
-      {/* ── Tabs ────────────────────────────────────────────────── */}
+      {/* ── Tabs ────────────────────────────────────────────────────────────── */}
       <div className="flex gap-0 border-b border-border">
         {STATUSES.map((s) => (
           <button
             key={s}
-            onClick={() => { setStatus(s); setPage(1); }}
+            onClick={() => { setStatus(s); }}
             className={cn(
               'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 -mb-px',
               status === s
@@ -312,108 +364,27 @@ export default function Appointments() {
         ))}
       </div>
 
-      {/* ── Table ───────────────────────────────────────────────── */}
-      <div className="bg-surface border border-border rounded-md overflow-hidden">
-        {filtered.length === 0 ? (
-          <EmptyState
-            icon={CalendarDays}
-            title="No appointments found"
-            description="Try adjusting your filters or date range."
-            action={{ label: 'Clear Filters', onClick: () => { setSearch(''); setStatus('All'); } }}
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th className="w-10">
-                    <input type="checkbox" onChange={(e) => {
-                      setSelectedRows(e.target.checked ? new Set(paginated.map((a) => a.id)) : new Set());
-                    }} className="rounded" />
-                  </th>
-                  <th>Patient</th>
-                  <th>Phone</th>
-                  <th>Service</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Status</th>
-                  <th>Booked At</th>
-                  <th className="w-10" />
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.map((appt) => (
-                  <tr
-                    key={appt.id}
-                    onClick={() => setSelected(appt)}
-                    className={cn('cursor-pointer', selectedRows.has(appt.id) && 'bg-primary-light')}
-                  >
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selectedRows.has(appt.id)}
-                        onChange={() => toggleRow(appt.id)}
-                        className="rounded"
-                      />
-                    </td>
-                    <td className="font-medium text-text-primary">{appt.patient}</td>
-                    <td className="font-mono text-xs">{appt.phone}</td>
-                    <td>{appt.service}</td>
-                    <td>{formatDate(appt.date)}</td>
-                    <td>{appt.time}</td>
-                    <td><StatusBadge status={appt.status} /></td>
-                    <td className="text-xs">{formatDate(appt.bookedAt)}</td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <button className="text-text-muted hover:text-text-primary">
-                        <MoreHorizontal size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* ── Pagination ──────────────────────────────────────────── */}
-      {filtered.length > PAGE_SIZE && (
-        <div className="flex items-center justify-between text-sm text-text-muted">
-          <span>
-            Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="w-8 h-8 flex items-center justify-center rounded-md border border-border hover:bg-surface-secondary disabled:opacity-40 transition-colors"
-            >
-              <ChevronLeft size={15} />
-            </button>
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map((n) => (
-              <button
-                key={n}
-                onClick={() => setPage(n)}
-                className={cn(
-                  'w-8 h-8 text-xs rounded-md border transition-colors',
-                  n === page ? 'bg-primary border-primary text-white' : 'border-border hover:bg-surface-secondary'
-                )}
-              >
-                {n}
-              </button>
-            ))}
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="w-8 h-8 flex items-center justify-center rounded-md border border-border hover:bg-surface-secondary disabled:opacity-40 transition-colors"
-            >
-              <ChevronRight size={15} />
-            </button>
-          </div>
-        </div>
+      {/* ── Virtualized Table ────────────────────────────────────────────────── */}
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={CalendarDays}
+          title="No appointments found"
+          description="Try adjusting your filters or date range."
+          action={{ label: 'Clear Filters', onClick: () => { setSearch(''); setStatus('All'); } }}
+        />
+      ) : (
+        <VirtualizedTable
+          columns={columns}
+          rows={filtered}
+          height={tableHeight}
+          itemSize={VIRTUALIZATION_ROW_HEIGHT}
+          onRowClick={(row) => setSelected(row)}
+          selectedRowIds={selectedRows}
+          onToggleRow={toggleRow}
+        />
       )}
 
-      {/* ── Detail Drawer ─────────────────────────────────────────── */}
+      {/* ── Detail Drawer ──────────────────────────────────────────────────── */}
       <AnimatePresence>
         {selected && (
           <DetailDrawer
