@@ -1,105 +1,81 @@
 const mongoose = require("mongoose");
 
-const workingHoursSchema = new mongoose.Schema({
-  day: {
-    type: String,
-    enum: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    required: true,
-  },
-  open: { type: String, default: "9am" },
-  close: { type: String, default: "5pm" },
-  isClosed: { type: Boolean, default: false },
-});
-
-const tenantSchema = new mongoose.Schema(
+const WorkingHoursSchema = new mongoose.Schema(
   {
-    docName: {
+    monday:    { type: String, default: "9:00 AM - 6:00 PM" },
+    tuesday:   { type: String, default: "9:00 AM - 6:00 PM" },
+    wednesday: { type: String, default: "9:00 AM - 6:00 PM" },
+    thursday:  { type: String, default: "9:00 AM - 6:00 PM" },
+    friday:    { type: String, default: "9:00 AM - 6:00 PM" },
+    saturday:  { type: String, default: "10:00 AM - 2:00 PM" },
+    sunday:    { type: String, default: "Closed" },
+  },
+  { _id: false }
+);
+
+const TenantSchema = new mongoose.Schema(
+  {
+    // Link to AUTH service user
+    user_id: {
       type: String,
-      required: true,
+      required: [true, "User ID is required"],
+      unique: true,
       trim: true,
     },
 
-    email: {
+    // Clinic/Hospital details
+    clinicName: {
       type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      index: true,
+      trim: true,
+      default: "",
+    },
+    address: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    phone: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    workingHrs: {
+      type: WorkingHoursSchema,
+      default: () => ({}),
+    },
+    services: {
+      type: [String],
+      default: [],
+    },
+    welcomeMsg: {
+      type: String,
+      default: "Hi! How can I help you today?",
+    },
+    logoUrl: {
+      type: String,
+      default: "",
     },
 
+    // Track onboarding completion
+    isProfileComplete: {
+      type: Boolean,
+      default: false,
+    },
+
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+
+    // API key for widget/external access (hashed)
     apiKey: {
       type: String,
-      required: true,
       unique: true,
-      select: false, //
-    },
-
-    details: {
-      clinicName: {
-        type: String,
-        required: true,
-        trim: true,
-      },
-
-      address: {
-        type: String,
-        required: true,
-      },
-
-      phone: {
-        type: String,
-      },
-
-      password: {
-        type: String,
-        required: true,
-        select: false,
-      },
-
-      workingHrs: [workingHoursSchema],
-
-      services: [
-        {
-          type: String,
-          enum: [
-            "Emergency",
-            "OPD",
-            "IPD",
-            "Surgery",
-            "Cardiology",
-            "Neurology",
-            "Orthopedics",
-            "Pediatrics",
-            "Gynecology",
-            "Radiology",
-            "Laboratory",
-            "Pharmacy",
-            "Physiotherapy",
-            "Dentistry",
-            "ENT",
-            "Dermatology",
-            "Psychiatry",
-            "Oncology",
-            "Nephrology",
-            "Gastroenterology",
-            "Urology",
-            "Ophthalmology",
-            "Pathology",
-            "Rehabilitation",
-            "Vaccination",
-          ],
-        },
-      ],
-
-      welcomeMsg: {
-        type: String,
-        required: true,
-      },
+      sparse: true, // Allow null values
+      select: false, // Never return in queries by default
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-const tenantModel = mongoose.Model("Tenant", tenantSchema);
-
-module.exports = tenantModel;
+module.exports = mongoose.model("Tenant", TenantSchema);
