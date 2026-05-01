@@ -47,7 +47,16 @@ export function GlobalSearch() {
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  const index = useMemo(() => buildSearchIndex(appointments, faqs), [appointments, faqs]);
+  const appointmentSignature = useMemo(
+    () => appointments.map((a) => `${a.id}:${a.patient}:${a.service}:${a.status}`).join('|'),
+    [appointments]
+  );
+  const faqSignature = useMemo(
+    () => faqs.map((faq) => `${faq.id}:${faq.question}:${faq.answer}`).join('|'),
+    [faqs]
+  );
+
+  const index = useMemo(() => buildSearchIndex(appointments, faqs), [appointmentSignature, faqSignature]);
 
   const filtered = useMemo(() => {
     const query = debouncedSearchQuery.trim();

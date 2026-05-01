@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -12,6 +12,7 @@ import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
  * Structure: sidebar (fixed left) + topbar (fixed top, spans content) + main content.
  */
 export function AppShell() {
+  const { pathname } = useLocation();
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
 
   // Register global keyboard shortcuts for the whole app
@@ -38,7 +39,7 @@ export function AppShell() {
       >
         {/* Page transition wrapper */}
         <motion.div
-          key={location.pathname}
+          key={pathname}
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.15, ease: 'easeOut' }}
