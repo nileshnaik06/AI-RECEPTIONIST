@@ -109,7 +109,7 @@ exports.updateProfile = asyncHandler(async (req, res) => {
   const clinic = await Tenant.findOneAndUpdate(
     { user_id },
     { $set: updateData },
-    { new: true, runValidators: true },
+    { returnDocument: 'after', runValidators: true },
   );
 
   res.json({
