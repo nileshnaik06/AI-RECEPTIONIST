@@ -129,6 +129,8 @@ export default function ChatLogs() {
   const [outcomeFilter, setOutcomeFilter] = useState('All');
   const [sentimentFilter, setSentimentFilter] = useState('All');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const activeIdRef = useRef(activeId);
+  const filteredSessionsRef = useRef([]);
 
   const stats = useMemo(() => computeLogStats(sessions), [sessions]);
 
@@ -146,6 +148,14 @@ export default function ChatLogs() {
     });
   }, [sessions, search, outcomeFilter, sentimentFilter]);
 
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  useEffect(() => {
+    filteredSessionsRef.current = filteredSessions;
+  }, [filteredSessions]);
+
   const activeSession = useMemo(() =>
     sessions.find((s) => s.id === activeId) || null
     , [sessions, activeId]);
@@ -153,18 +163,21 @@ export default function ChatLogs() {
   // Keyboard navigation for list
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (!filteredSessions.length) return;
-      const currentIndex = filteredSessions.findIndex(s => s.id === activeId);
+      const currentSessions = filteredSessionsRef.current;
+      const currentActiveId = activeIdRef.current;
+
+      if (!currentSessions.length) return;
+      const currentIndex = currentSessions.findIndex(s => s.id === currentActiveId);
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        if (currentIndex < filteredSessions.length - 1) {
-          setActiveId(filteredSessions[currentIndex + 1].id);
+        if (currentIndex < currentSessions.length - 1) {
+          setActiveId(currentSessions[currentIndex + 1].id);
         }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         if (currentIndex > 0) {
-          setActiveId(filteredSessions[currentIndex - 1].id);
+          setActiveId(currentSessions[currentIndex - 1].id);
         }
       } else if (e.key === 'Escape') {
          setIsFullscreen(false);
@@ -172,7 +185,7 @@ export default function ChatLogs() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [filteredSessions, activeId]);
+  }, []);
 
   const handleExport = () => {
     if (!activeSession) return;
@@ -294,67 +307,62 @@ export default function ChatLogs() {
 
           {/* List */}
           <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <AnimatePresence mode="popLayout">
-              {filteredSessions.length === 0 ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <EmptyState
-                    icon={Filter}
-                    title="No sessions found"
-                    description="Try adjusting your filters or search terms."
-                  />
-                </motion.div>
-              ) : (
-                filteredSessions.map((session) => (
-                  <motion.button
-                    layout
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    key={session.id}
-                    onClick={() => setActiveId(session.id)}
-                    className={cn(
-                      'w-full text-left p-4 border-b border-border transition-all duration-150 relative group',
-                      activeId === session.id
-                        ? 'bg-primary/5 border-l-2 border-l-primary shadow-[inset_0_1px_4px_rgba(0,0,0,0.02)]'
-                        : 'hover:bg-surface-secondary border-l-2 border-l-transparent'
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={session.outcome} className="scale-90 origin-left" />
-                        <span className="text-[11px] text-text-muted flex items-center gap-1">
-                          <Clock size={10} /> {session.duration}m
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-text-muted font-medium">
-                        {formatDate(session.date)}
+            {filteredSessions.length === 0 ? (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <EmptyState
+                  icon={Filter}
+                  title="No sessions found"
+                  description="Try adjusting your filters or search terms."
+                />
+              </motion.div>
+            ) : (
+              filteredSessions.map((session) => (
+                <button
+                  key={session.id}
+                  onClick={() => setActiveId(session.id)}
+                  className={cn(
+                    'w-full text-left p-4 border-b border-border transition-colors duration-150 relative group',
+                    activeId === session.id
+                      ? 'bg-primary/5 border-l-2 border-l-primary shadow-[inset_0_1px_4px_rgba(0,0,0,0.02)]'
+                      : 'hover:bg-surface-secondary border-l-2 border-l-transparent'
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={session.outcome} className="scale-90 origin-left" />
+                      <span className="text-[11px] text-text-muted flex items-center gap-1">
+                        <Clock size={10} /> {session.duration}m
                       </span>
                     </div>
+                    <span className="text-[11px] text-text-muted font-medium">
+                      {formatDate(session.date)}
+                    </span>
+                  </div>
 
-                    <p className={cn(
-                      "text-sm font-medium truncate mb-2 transition-colors",
-                      activeId === session.id ? "text-primary" : "text-text-primary group-hover:text-primary/80"
-                    )}>
-                      "{session.preview}"
-                    </p>
+                  <p className={cn(
+                    "text-sm font-medium truncate mb-2 transition-colors",
+                    activeId === session.id ? "text-primary" : "text-text-primary group-hover:text-primary/80"
+                  )}>
+                    "{session.preview}"
+                  </p>
 
-                    <div className="flex items-center justify-between mt-auto">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5 text-[11px] text-text-muted bg-surface border border-border px-1.5 py-0.5 rounded">
-                          <SourceIcon source={session.source} size={10} />
-                          {session.source}
-                        </div>
-                        <div className="flex items-center gap-1 text-[11px] text-text-muted">
-                          <SentimentIcon sentiment={session.sentiment} size={12} />
-                        </div>
+                  <div className="flex items-center justify-between mt-auto">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5 text-[11px] text-text-muted bg-surface border border-border px-1.5 py-0.5 rounded">
+                        <SourceIcon source={session.source} size={10} />
+                        {session.source}
                       </div>
-                      <span className="text-[11px] font-medium text-text-muted bg-surface-secondary px-1.5 py-0.5 rounded">
-                        {session.messages} msgs
-                      </span>
+                      <div className="flex items-center gap-1 text-[11px] text-text-muted">
+                        <SentimentIcon sentiment={session.sentiment} size={12} />
+                      </div>
                     </div>
-                  </motion.button>
-                ))
-              )}
-            </AnimatePresence>
+                    <span className="text-[11px] font-medium text-text-muted bg-surface-secondary px-1.5 py-0.5 rounded">
+                      {session.messages} msgs
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </div>
 

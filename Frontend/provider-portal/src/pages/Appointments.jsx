@@ -209,12 +209,12 @@ export default function Appointments() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const tabCounts = {
+  const tabCounts = useMemo(() => ({
     All:       appointments.length,
     Pending:   appointments.filter((a) => a.status === 'Pending').length,
     Confirmed: appointments.filter((a) => a.status === 'Confirmed').length,
     Cancelled: appointments.filter((a) => a.status === 'Cancelled').length,
-  };
+  }), [appointments]);
 
   const toggleRow = (id) => {
     setSelectedRows((prev) => {
