@@ -1,13 +1,22 @@
 // src/controllers/auth.controller.js
-const User = require('../model/user.model.js')
-const ApiError = require('../utils/ApiError.js')
-const ApiResponse = require('../utils/ApiResponse.js')
-const asyncHandler = require('../utils/asyncHandler.js')
+const User = require("../model/user.model.js");
+const ApiError = require("../utils/ApiError.js");
+const ApiResponse = require("../utils/ApiResponse.js");
+const asyncHandler = require("../utils/asyncHandler.js");
+const crypto = require("crypto");
+
+// ─── Helpers ──────────────────────────────────────
+const generateApiKey = () => {
+  return crypto.randomBytes(32).toString("hex");
+};
+
+const hashApiKey = (key) => {
+  return crypto.createHash("sha256").update(key).digest("hex");
+};
 
 // ─── Helper: Create token and send response ───────────────────
-// We extract this because both signup and login do the same thing
-const sendTokenResponse = (user, statusCode, res) => {
-  const token = user.generateToken()
+const sendTokenResponse = (user, statusCode, res, apiKey = null) => {
+  const token = user.generateToken();
 
   // Cookie options
   const cookieOptions = {
@@ -15,86 +24,115 @@ const sendTokenResponse = (user, statusCode, res) => {
     httpOnly: true,
     sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
-  }
+  };
 
-  // Remove password from output even though select:false handles it
-  // Double safety
-  user.password = undefined
+  // Remove password from output
+  user.password = undefined;
+
+  const responseData = {
+    user: {
+      id: user._id,
+      email: user.email,
+      docName: user.docName,
+      isProfileComplete: user.isProfileComplete,
+    },
+    token,
+  };
+
+  // Include the API key on registration (shown only once)
+  if (apiKey) {
+    responseData.apiKey = apiKey;
+  }
 
   res
     .status(statusCode)
-    .cookie('token', token, cookieOptions)
-    .json(new ApiResponse(statusCode, { user, token }, 'Success'))
-}
+    .cookie("token", token, cookieOptions)
+    .json(new ApiResponse(statusCode, responseData, "Success"));
+};
 
-// ─── SIGNUP ──────────────────────────────────────────────────
+// ─── SIGNUP (Hospital Registration) ──────────────────────────
 const signup = asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body
+  const { docName, email, password } = req.body;
 
-  // Check if user already exists
-  const existingUser = await User.findOne({ email })
+  // Check if hospital already exists
+  const existingUser = await User.findOne({ email });
   if (existingUser) {
-    throw new ApiError(400, 'Email already registered')
+    throw new ApiError(400, "Email already registered");
   }
 
-  // Create user — password gets hashed by pre('save') middleware
-  const user = await User.create({ name, email, password })
 
-  sendTokenResponse(user, 201, res)
-})
+
+  // Create hospital account — password gets hashed by pre('save') middleware
+  const user = await User.create({
+    docName,
+    email,
+    password,
+  });
+
+
+
+  // Return raw API key (shown only once)
+  sendTokenResponse(user, 201, res);
+});
 
 // ─── LOGIN ───────────────────────────────────────────────────
 const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body
+  const { email, password } = req.body;
 
   // Validate input exists
   if (!email || !password) {
-    throw new ApiError(400, 'Please provide email and password')
+    throw new ApiError(400, "Please provide email and password");
   }
 
   // Find user and explicitly include password
-  const user = await User.findOne({ email }).select('+password')
+  const user = await User.findOne({ email }).select("+password");
 
   if (!user) {
     // Important: same error message for wrong email OR wrong password
-    // Never tell attacker which one is wrong
-    throw new ApiError(401, 'Invalid credentials')
+    throw new ApiError(401, "Invalid credentials");
+  }
+
+  // Check if account is active (for tenants)
+  if (user.isActive === false) {
+    throw new ApiError(403, "Account is deactivated. Contact support.");
   }
 
   // Check password
-  const isMatch = await user.isPasswordCorrect(password)
+  const isMatch = await user.isPasswordCorrect(password);
   if (!isMatch) {
-    throw new ApiError(401, 'Invalid credentials')
+    throw new ApiError(401, "Invalid credentials");
   }
 
-  sendTokenResponse(user, 200, res)
-})
+  sendTokenResponse(user, 200, res);
+});
 
 // ─── LOGOUT ──────────────────────────────────────────────────
 const logout = asyncHandler(async (req, res) => {
-  res.cookie('token', '', {
+  res.cookie("token", "", {
     expires: new Date(0), // Expire immediately
-    httpOnly: true
-  })
+    httpOnly: true,
+  });
 
-  res.json(new ApiResponse(200, {}, 'Logged out successfully'))
-})
+  res.json(new ApiResponse(200, {}, "Logged out successfully"));
+});
 
 // ─── GET CURRENT USER ─────────────────────────────────────────
 const getMe = asyncHandler(async (req, res) => {
   // req.user is set by auth middleware
-  const user = await User.findById(req.user.id)
+  const user = await User.findById(req.user.id);
 
   if (!user) {
-    throw new ApiError(404, 'User not found')
+    throw new ApiError(404, "User not found");
   }
 
-  res.json(new ApiResponse(200, user, 'User fetched'))
-})
+  res.json(new ApiResponse(200, user, "User fetched"));
+});
+
+
 
 module.exports = {
   signup,
   login,
   logout,
-  getMe
-}
+  getMe,
+};

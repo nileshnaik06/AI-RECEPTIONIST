@@ -5,24 +5,20 @@ const jwt = require("jsonwebtoken");
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
+    // ─── HOSPITAL/CLINIC OWNER INFO ───────────────
+    docName: {
       type: String,
-      required: [true, "Name is required"],
+      required: [true, "Doctor/Owner name is required"],
       trim: true,
-      minlength: [2, "Name must be at least 2 characters"],
-      maxlength: [50, "Name cannot exceed 50 characters"],
     },
 
     email: {
       type: String,
       required: [true, "Email is required"],
       unique: true,
-      lowercase: true, // always store email in lowercase
+      lowercase: true,
       trim: true,
-      match: [
-        /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
-        "Please provide a valid email",
-      ],
+      match: [/^\S+@\S+\.\S+$/, "Please enter a valid email"],
     },
 
     password: {
@@ -32,9 +28,9 @@ const userSchema = new mongoose.Schema(
       select: false, // never return password in queries by default
     },
 
-    avatar: {
-      type: String,
-      default: "",
+    isActive: {
+      type: Boolean,
+      default: true,
     },
   },
   {

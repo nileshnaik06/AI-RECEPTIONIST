@@ -31,12 +31,17 @@ exports.protect = asyncHandler(async (req, res, next) => {
     }
   }
 
-  // Find the user this token belongs to
+  // Find the user this token belongs to — attach FULL user object
   const user = await User.findById(decoded.id)
 
   if (!user) {
     // Token was valid but user was deleted
     throw new ApiError(401, 'User no longer exists')
+  }
+
+  // Check if account is active
+  if (user.isActive === false) {
+    throw new ApiError(403, 'Account is deactivated')
   }
 
   // Attach user to request — available in all subsequent middleware

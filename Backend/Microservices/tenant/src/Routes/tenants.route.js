@@ -1,29 +1,34 @@
-// routes/tenant.routes.js
 const express = require("express");
 const router = express.Router();
 
 const {
-  registerTenant,
-  loginTenant,
+  getProfile,
+  updateProfile,
+  regenerateApiKey,
 } = require("../controllers/tenant.controller");
 
-const { verifyApiKey } = require("../middleware/apiKey.middleware");
-const { authenticate } = require("../middleware/auth.middleware");
+const { authenticate } = require("../Middlewares/auth.middleware");
+const { verifyApiKey } = require("../Middlewares/apiKey.middleware");
 
-// Public
-router.post("/register", registerTenant);
-router.post("/login", loginTenant);
+// ── JWT protected routes (admin dashboard) ────────────────────
+// All these require a JWT token from the centralized AUTH service
+router.get("/profile", authenticate, getProfile);
+router.put("/profile", authenticate, updateProfile);
+router.post("/regenerate-api-key", authenticate, regenerateApiKey);
 
-// Protected via JWT
-router.get("/profile", authenticate, (req, res) => {
-  res.json({ message: "Tenant profile" });
-});
-
-// Protected via API key (for AI system)
-router.get("/ai-access", verifyApiKey, (req, res) => {
+// ── API key protected route (widget / AI system) ───────────────
+// Used by the chatbot widget to fetch public clinic information
+router.get("/clinic-info", verifyApiKey, (req, res) => {
+  // req.tenant contains clinic data verified by apiKey middleware
   res.json({
-    message: "Access granted",
-    clinic: req.tenant.details.clinicName,
+    success: true,
+    data: {
+      clinicName: req.tenant.clinicName,
+      phone: req.tenant.phone,
+      workingHrs: req.tenant.workingHrs,
+      services: req.tenant.services,
+      welcomeMsg: req.tenant.welcomeMsg,
+    },
   });
 });
 
