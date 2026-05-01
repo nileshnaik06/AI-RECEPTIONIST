@@ -1,6 +1,5 @@
 const Tenant = require('../../../tenant/src/model/tenant.model');
 
-
 const apiKeyAuth = async (req, res, next) => {
   try {
     const apiKey = req.headers['x-api-key'];
