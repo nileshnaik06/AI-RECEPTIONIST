@@ -58,6 +58,7 @@ export default function Login() {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(loginSchema),
@@ -65,10 +66,16 @@ export default function Login() {
 
   const onSubmit = async (data) => {
     setLoading(true);
-    // Simulate network delay
-    await new Promise((r) => setTimeout(r, 800));
-    login(data.email);
-    navigate('/dashboard');
+    setError('');
+    try {
+      await login(data.email, data.password);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.message || 'Login failed. Please try again.');
+      console.error('Login error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -91,6 +98,12 @@ export default function Login() {
             <p className="text-sm text-text-secondary mb-8">
               Sign in to your clinic dashboard
             </p>
+
+            {error && (
+              <div className="mb-4 p-3 bg-danger/10 border border-danger/20 rounded-md">
+                <p className="text-sm text-danger">{error}</p>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
               <FormInput

@@ -1,6 +1,7 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { generateApiKey } from '../lib/utils';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { generateApiKey } from "../lib/utils";
+import { authApi } from "../lib/api";
 
 /**
  * Auth store — handles login state, user session, and API key.
@@ -13,50 +14,73 @@ const useAuthStore = create(
       apiKey: null,
       isAuthenticated: false,
 
-      // Simulate login — replace with real API call in production
-      login: (email) => {
-        set({
-          user: {
-            id:    'usr-001',
-            email,
-            name:  'Dr. Sarah Chen',
-            role:  'admin',
-            plan:  'pro',
-            avatar: null,
-          },
-          isAuthenticated: true,
-        });
+      // Login with real API call
+      login: async (email, password) => {
+        try {
+          const response = await authApi.login(email, password);
+          set({
+            user: {
+              id: response.data.user.id,
+              email: response.data.user.email,
+              name: response.data.user.docName || "Doctor",
+              plan: "pro",
+              avatar: null,
+            },
+            isAuthenticated: true,
+          });
+        } catch (error) {
+          set({ isAuthenticated: false, user: null });
+          throw error;
+        }
       },
 
-      // Register generates an API key on completion
-      register: (clinicData) => {
-        const key = generateApiKey();
-        set({
-          user: {
-            id:    'usr-001',
-            email: clinicData.email,
-            name:  clinicData.clinicName,
-            role:  'admin',
-            plan:  'starter',
-            avatar: null,
-          },
-          apiKey: key,
-          isAuthenticated: true,
-        });
-        return key;
+      // Register with real API call
+      register: async (clinicData) => {
+        try {
+          const response = await authApi.signup(
+            clinicData.email,
+            clinicData.password,
+            clinicData.clinicName,
+          );
+          set({
+            user: {
+              id: response.data.user.id,
+              email: response.data.user.email,
+              name: clinicData.clinicName,
+              plan: "starter",
+              avatar: null,
+            },
+            apiKey: response.data.apiKey,
+            isAuthenticated: true,
+          });
+          return response.data.apiKey;
+        } catch (error) {
+          set({ isAuthenticated: false, user: null, apiKey: null });
+          throw error;
+        }
       },
 
-      logout: () => {
-        set({ user: null, apiKey: null, isAuthenticated: false });
+      logout: async () => {
+        try {
+          await authApi.logout();
+        } catch (error) {
+          console.error("Logout error:", error);
+        } finally {
+          set({ user: null, apiKey: null, isAuthenticated: false });
+        }
       },
 
+      // Generate a local API key (for initialization only)
+      // NOTE: The actual API key should be managed by the TENANT service
+      // This is just for fallback/local initialization
       regenerateApiKey: () => {
         const key = generateApiKey();
         set({ apiKey: key });
         return key;
       },
 
-      // Lazy initialize API key if not set
+      // Get or initialize API key (local fallback)
+      // Real API key regeneration happens via useClinicStore.regenerateApiKeyOnApi()
       getApiKey: () => {
         const { apiKey } = get();
         if (apiKey) return apiKey;
@@ -66,15 +90,15 @@ const useAuthStore = create(
       },
     }),
     {
-      name: 'linor-auth',
+      name: "linor-auth",
       // Only persist what's needed — avoid leaking sensitive data
       partialize: (state) => ({
-        user:            state.user,
-        apiKey:          state.apiKey,
+        user: state.user,
+        apiKey: state.apiKey,
         isAuthenticated: state.isAuthenticated,
       }),
-    }
-  )
+    },
+  ),
 );
 
 export default useAuthStore;

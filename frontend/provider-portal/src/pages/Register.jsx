@@ -79,26 +79,47 @@ export default function Register() {
   const [apiKey, setApiKey] = useState('');
   const [copied, setCopied] = useState(false);
   const [step1Data, setStep1Data] = useState(null);
+  const [error, setError] = useState('');
 
   const step1Form = useForm({ resolver: zodResolver(registerStep1Schema) });
   const step2Form = useForm({ resolver: zodResolver(registerStep2Schema) });
 
   const handleStep1 = async (data) => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
-    setStep1Data(data);
-    setLoading(false);
-    setStep(2);
+    setError('');
+    try {
+      setStep1Data(data);
+      setStep(2);
+    } catch (err) {
+      setError(err.message || 'Failed to proceed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleStep2 = async () => {
+  const handleStep2 = async (step2FormData) => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    const key = register(step1Data);
-    updateClinic({ name: step1Data.clinicName, email: step1Data.email, phone: step1Data.phone, address: step1Data.address });
-    setApiKey(key);
-    setLoading(false);
-    setStep(3);
+    setError('');
+    try {
+      const registrationData = {
+        ...step1Data,
+        password: step2FormData.password,
+      };
+      const key = await register(registrationData);
+      updateClinic({ 
+        name: step1Data.clinicName, 
+        email: step1Data.email, 
+        phone: step1Data.phone, 
+        address: step1Data.address 
+      });
+      setApiKey(key);
+      setStep(3);
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please try again.');
+      console.error('Registration error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCopy = async () => {
@@ -121,6 +142,12 @@ export default function Register() {
           <p className="text-sm text-text-secondary mb-6">Set up your AI receptionist in minutes</p>
 
           <StepDots step={step} />
+
+          {error && (
+            <div className="mb-4 p-3 bg-danger/10 border border-danger/20 rounded-md">
+              <p className="text-sm text-danger">{error}</p>
+            </div>
+          )}
 
           <AnimatePresence mode="wait">
             {/* ── Step 1: Clinic Info ──────────────────────────── */}
