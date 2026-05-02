@@ -26,7 +26,7 @@ exports.authenticate = asyncHandler(async (req, res, next) => {
     // Convert id to string to ensure consistency
     req.user = { id: String(decoded.id) };
     req.token = token; // Store token for passing to other microservices
-    console.log("✅ JWT Decoded - user_id:", req.user.id); // Debug
+
     next();
   } catch (err) {
     if (err.name === "TokenExpiredError") {
