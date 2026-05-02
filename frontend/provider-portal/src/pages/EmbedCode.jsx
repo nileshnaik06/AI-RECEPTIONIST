@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Eye, EyeOff, RefreshCw, CheckCircle, AlertCircle, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import useAuthStore from '../store/useAuthStore';
+import useClinicStore from '../store/useClinicStore';
 import { CopyButton } from '../components/shared/CopyButton';
 import { ConfirmModal } from '../components/shared/ConfirmModal';
 import { useToast } from '../components/shared/Toast';
@@ -69,20 +70,32 @@ function FaqItem({ q, a }) {
 // ─── Embed Code Page ──────────────────────────────────────────────────────────
 
 export default function EmbedCode() {
-  const { getApiKey, regenerateApiKey } = useAuthStore();
-  const apiKey = getApiKey();
-  const toast  = useToast();
+  const authStore = useAuthStore();
+  const { regenerateApiKeyOnApi } = useClinicStore();
+  const toast = useToast();
 
-  const [revealed,   setRevealed]   = useState(false);
-  const [regenOpen,  setRegenOpen]  = useState(false);
-  const [activeTab,  setActiveTab]  = useState('HTML');
-  const [testUrl,    setTestUrl]    = useState('');
+  const [apiKey, setApiKey] = useState(authStore.getApiKey());
+  const [revealed, setRevealed] = useState(false);
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState('HTML');
+  const [testUrl, setTestUrl] = useState('');
 
-  const handleRegenerate = () => {
-    regenerateApiKey();
-    setRegenOpen(false);
-    setRevealed(false);
-    toast.success('API key regenerated. Update your embed snippet.');
+  const handleRegenerate = async () => {
+    setIsRegenerating(true);
+    try {
+      const newApiKey = await regenerateApiKeyOnApi();
+      if (newApiKey) {
+        setApiKey(newApiKey);
+        setRegenOpen(false);
+        setRevealed(false);
+        toast.success('API key regenerated. Update your embed snippet.');
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to regenerate API key');
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   const snippet = SNIPPET_TEMPLATES[activeTab]?.(apiKey) ?? '';
@@ -122,10 +135,11 @@ export default function EmbedCode() {
         <div className="flex items-center gap-3 mt-3">
           <button
             onClick={() => setRegenOpen(true)}
-            className="flex items-center gap-1.5 text-xs text-danger hover:underline transition-colors"
+            disabled={isRegenerating}
+            className="flex items-center gap-1.5 text-xs text-danger hover:underline transition-colors disabled:opacity-60"
           >
-            <RefreshCw size={13} />
-            Regenerate Key
+            <RefreshCw size={13} className={isRegenerating ? "animate-spin" : ""} />
+            {isRegenerating ? 'Regenerating...' : 'Regenerate Key'}
           </button>
           <span className="text-text-muted">·</span>
           <span className="text-xs text-text-muted">Keep this private — never expose it in public repositories.</span>
@@ -234,12 +248,13 @@ export default function EmbedCode() {
       {/* Regenerate Key Modal */}
       <ConfirmModal
         open={regenOpen}
-        onClose={() => setRegenOpen(false)}
+        onClose={() => !isRegenerating && setRegenOpen(false)}
         onConfirm={handleRegenerate}
         title="Regenerate API Key?"
         description="This will invalidate your current key immediately. Any website using the old key will stop working until you update the embed code."
-        confirmLabel="Yes, Regenerate"
+        confirmLabel={isRegenerating ? 'Regenerating...' : 'Yes, Regenerate'}
         confirmDanger
+        disabled={isRegenerating}
       />
     </div>
   );

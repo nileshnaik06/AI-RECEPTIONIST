@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -109,8 +109,20 @@ const QUICK_ACTIONS = [
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const { appointments, clinic } = useClinicStore();
+  const { appointments, clinic, loadProfileFromApi } = useClinicStore();
   const { welcomeDismissed, dismissWelcome } = useUIStore();
+
+  // Load clinic profile from API on component mount
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        await loadProfileFromApi();
+      } catch (error) {
+        console.error('Failed to load clinic profile:', error);
+      }
+    };
+    loadProfile();
+  }, [loadProfileFromApi]);
 
   const pending   = appointments.filter((a) => a.status === 'Pending').length;
   const sessions  = 342; // mock total chat sessions

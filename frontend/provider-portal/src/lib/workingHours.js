@@ -450,3 +450,29 @@ export function getDayOrder() {
   return [...DAY_ORDER];
 }
 
+/**
+ * Convert frontend complex format to backend simple string format
+ * Frontend: { timezone, weekly: [{day, enabled, slots: [{start, end}]}], breaks, overrides }
+ * Backend: { monday: "9:00 AM - 6:00 PM", tuesday: "...", ... }
+ */
+export function convertConfigToBackendFormat(config) {
+  const normalized = normalizeWorkingHoursConfig(config);
+  const result = {};
+
+  DAY_ORDER.forEach((day) => {
+    const daySchedule = normalized.weekly.find((row) => row.day === day);
+    
+    if (!daySchedule?.enabled || !daySchedule.slots.length) {
+      result[day.toLowerCase()] = 'Closed';
+    } else {
+      // Take the first slot (backend only supports one time range per day)
+      const slot = daySchedule.slots[0];
+      const startFormatted = formatClock(slot.start);
+      const endFormatted = formatClock(slot.end);
+      result[day.toLowerCase()] = `${startFormatted} - ${endFormatted}`;
+    }
+  });
+
+  return result;
+}
+
