@@ -49,13 +49,15 @@ const apiClient = async (service, endpoint, options = {}) => {
     const text = await response.text();
     let data = null;
 
-    
     // Only parse JSON if there's content
     if (text && text.trim()) {
       try {
         data = JSON.parse(text);
       } catch (parseError) {
-        console.error(`Failed to parse JSON response from ${service}:`, parseError);
+        console.error(
+          `Failed to parse JSON response from ${service}:`,
+          parseError,
+        );
         throw new Error(`Invalid JSON response from ${service}`);
       }
     }
@@ -108,11 +110,11 @@ export const appointmentApi = {
       body: JSON.stringify(appointmentData),
     }),
 
-  getById: (id) => apiClient("appointments", `/${id}`, { method: "GET" }),
+  getById: (id) => apiClient("appointments" `/${id}`, { method: "GET" }),
 
   update: (id, appointmentData) =>
-    apiClient("appointments", `/${id}`, {
-      method: "PUT",
+    apiClient("appointments", `/${id}/status`, {
+      method: "PATCH",
       body: JSON.stringify(appointmentData),
     }),
 
