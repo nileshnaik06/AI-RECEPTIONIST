@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,6 +37,8 @@ import { clinicGeneralSchema, clinicContactSchema } from "../lib/validators";
 import { cn } from "../lib/utils";
 import { summarizeCoverage, getNextOverride } from "../lib/workingHours";
 import useAuthStore from "../store/useAuthStore";
+import { IKContext, IKUpload } from "imagekitio-react";
+import { tenantApi } from "../lib/api"; // Ensure this is imported for the authenticator
 
 const LEFT_NAV = [
   "General Info",
@@ -100,9 +102,9 @@ export default function ClinicSettings() {
     reorderServices,
     resetFaqs,
     updateProfileOnApi,
+    loadProfileFromApi,
   } = useClinicStore();
   const { user } = useAuthStore();
-
 
   const toast = useToast();
 
@@ -111,9 +113,56 @@ export default function ClinicSettings() {
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
-  const [logoPreview, setLogoPreview] = useState(null);
+
+  // 1. Initialize preview with the existing logo if they have one
+  const [logoPreview, setLogoPreview] = useState(clinic.logo || null);
+  // 2. Add a loading state just for the image upload
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  useEffect(() => {
+    setLogoPreview(clinic.logo || null);
+  }, [clinic.logo]);
   const fileRef = useRef(null);
 
+  // Helper to check if logo has changed from current clinic logo in store
+  // const logoHasChanged = logoPreview !== clinic.logo;
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        await loadProfileFromApi();
+      } catch (error) {
+        console.error("Failed to load clinic profile:", error);
+      }
+    };
+    loadProfile();
+  }, [loadProfileFromApi]);
+  // 3. Add the Authenticator function required by ImageKit
+  const authenticator = async () => {
+    try {
+      const response = await tenantApi.getImageKitAuth();
+
+
+
+      // If your backend returns the keys directly:
+      if (response.token && response.signature && response.expire) {
+        return response;
+      }
+
+      // If your backend nests the keys under a 'data' property (very common):
+      if (response.data && response.data.token) {
+        return response.data;
+      }
+
+      // If neither worked, throw a clear error so we know what to fix
+      throw new Error(
+        "Could not find token, signature, and expire in response",
+      );
+    } catch (error) {
+      console.error("Auth Error:", error);
+      throw new Error(`Authentication request failed: ${error.message}`);
+    }
+  };
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
@@ -146,6 +195,7 @@ export default function ClinicSettings() {
         name: data.name,
         description: data.description,
         website: data.website,
+        logo: logoPreview, // Save the new logo preview URL to the clinic profile
       });
       toast.success("Clinic info saved!");
       generalForm.reset(data);
@@ -309,8 +359,13 @@ export default function ClinicSettings() {
                       Clinic Logo
                     </label>
                     <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-md border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-surface-secondary">
-                        {logoPreview ? (
+                      <div className="w-16 h-16 rounded-md border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-surface-secondary relative">
+                        {isUploadingLogo ? (
+                          <Loader2
+                            size={20}
+                            className="text-primary animate-spin"
+                          />
+                        ) : logoPreview ? (
                           <img
                             src={logoPreview}
                             alt="Logo"
@@ -320,35 +375,88 @@ export default function ClinicSettings() {
                           <Upload size={20} className="text-text-muted" />
                         )}
                       </div>
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => fileRef.current?.click()}
-                          className="text-sm font-medium text-primary hover:underline"
-                        >
-                          Upload logo
-                        </button>
-                        {logoPreview && (
+
+                      {/* ImageKit Wrapper */}
+                      <IKContext
+                        publicKey={
+                          import.meta.env.VITE_IMAGEKIT_PUBLIC_KEY ||
+                          "YOUR_PUBLIC_KEY"
+                        }
+                        urlEndpoint={
+                          import.meta.env.VITE_IMAGEKIT_URL_ENDPOINT ||
+                          "YOUR_URL_ENDPOINT"
+                        }
+                        authenticator={authenticator}
+                      >
+                        <div>
                           <button
                             type="button"
-                            onClick={() => setLogoPreview(null)}
-                            className="ml-3 text-sm text-danger hover:underline"
+                            onClick={() => fileRef.current?.click()}
+                            disabled={isUploadingLogo}
+                            className="text-sm font-medium text-primary hover:underline disabled:opacity-50"
                           >
-                            Remove
+                            {isUploadingLogo ? "Uploading..." : "Upload logo"}
                           </button>
-                        )}
-                        <p className="text-xs text-text-muted mt-0.5">
-                          PNG, JPG up to 2MB. Shown in chatbot widget.
-                        </p>
-                      </div>
+                          {logoPreview && !isUploadingLogo && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setLogoPreview(null);
+                                try {
+                                  await updateProfileOnApi({
+                                    ...clinic,
+                                    logo: null, // Clear it in the DB
+                                  });
+                                  toast.info("Logo removed.");
+                                } catch (err) {
+                                  toast.error("Failed to remove logo.");
+                                }
+                              }}
+                              className="ml-3 text-sm text-danger hover:underline"
+                            >
+                              Remove
+                            </button>
+                          )}
+                          <p className="text-xs text-text-muted mt-0.5">
+                            PNG, JPG up to 2MB. Shown in chatbot widget.
+                          </p>
+                        </div>
+
+                        {/* Hidden ImageKit Input */}
+                        <IKUpload
+                          style={{ display: "none" }}
+                          ref={fileRef} // Make sure this is ref, not inputRef based on your version
+                          accept="image/*"
+                          onChange={(e) => {
+                            if (e.target.files.length > 0)
+                              setIsUploadingLogo(true);
+                          }}
+                          onError={(err) => {
+                            console.error("ImageKit Upload Error:", err);
+                            setIsUploadingLogo(false);
+                            toast.error("Failed to upload logo.");
+                          }}
+                          onSuccess={async (res) => {
+                            setIsUploadingLogo(false);
+                            setLogoPreview(res.url); // Set the live URL
+
+                            // ADDED: Auto-save directly to the database!
+                            try {
+                              await updateProfileOnApi({
+                                ...clinic,
+                                logo: res.url,
+                              });
+                              toast.success("Logo saved successfully!");
+                            } catch (err) {
+                              console.error("Failed to save logo to DB:", err);
+                              toast.error(
+                                "Logo uploaded, but failed to save to database.",
+                              );
+                            }
+                          }}
+                        />
+                      </IKContext>
                     </div>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={handleLogoUpload}
-                    />
                   </div>
 
                   {[
@@ -399,7 +507,7 @@ export default function ClinicSettings() {
                   <div className="flex justify-end">
                     <button
                       type="submit"
-                      disabled={saving || !generalForm.formState.isDirty}
+                      disabled={saving || !generalForm.formState.isDirty} // Simplified!
                       className="h-9 px-5 text-sm font-semibold bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-60 flex items-center gap-2 transition-colors"
                     >
                       {saving ? (

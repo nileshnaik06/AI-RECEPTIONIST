@@ -110,7 +110,7 @@ export const appointmentApi = {
       body: JSON.stringify(appointmentData),
     }),
 
-  getById: (id) => apiClient("appointments" `/${id}`, { method: "GET" }),
+  getById: (id) => apiClient("appointments"`/${id}`, { method: "GET" }),
 
   update: (id, appointmentData) =>
     apiClient("appointments", `/${id}/status`, {
@@ -197,6 +197,11 @@ export const tenantApi = {
       method: "POST",
       body: JSON.stringify({}),
     }),
+
+  getImageKitAuth: () =>
+    apiClient("tenant", "/imagekit-auth", { method: "GET" }),
+
+
 };
 
 export default apiClient;
