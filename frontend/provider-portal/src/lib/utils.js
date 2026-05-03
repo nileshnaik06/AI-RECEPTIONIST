@@ -33,6 +33,15 @@ export function formatTime(date) {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
+
+
+export function formatDateTime(date) {
+  if (!date) return '—';
+  return `${formatDate(date)}, ${formatTime(date)}`;
+}
+
+
+
 /**
  * Truncate a string to a given length with ellipsis.
  */
