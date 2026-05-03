@@ -159,6 +159,7 @@ const useClinicStore = create(
           if (response?.data) {
             const backendProfile = response.data;
 
+
             // Map backend fields to frontend clinic structure
             const clinicData = {
               name: backendProfile.clinicName || "HealthFirst Clinic",
