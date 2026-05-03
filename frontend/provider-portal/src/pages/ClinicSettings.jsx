@@ -103,7 +103,7 @@ export default function ClinicSettings() {
   } = useClinicStore();
   const { user } = useAuthStore();
 
-  console.log("Clinic data:", user);
+
   const toast = useToast();
 
   const [section, setSection] = useState("General Info");

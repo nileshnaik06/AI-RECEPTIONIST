@@ -103,20 +103,20 @@ const useClinicStore = create(
         set((s) => ({ widgetSettings: { ...s.widgetSettings, ...settings } })),
 
       // FAQ CRUD
-      addFaq: (faq) =>
-        set((s) => ({
-          faqs: [...s.faqs, { ...faq, id: `faq-${Date.now()}`, hits: 0 }],
-        })),
+      // addFaq: (faq) =>
+      //   set((s) => ({
+      //     faqs: [...s.faqs, { ...faq, id: `faq-${Date.now()}`, hits: 0 }],
+      //   })),
 
-      updateFaq: (id, data) =>
-        set((s) => ({
-          faqs: s.faqs.map((f) => (f.id === id ? { ...f, ...data } : f)),
-        })),
+      // updateFaq: (id, data) =>
+      //   set((s) => ({
+      //     faqs: s.faqs.map((f) => (f.id === id ? { ...f, ...data } : f)),
+      //   })),
 
-      deleteFaq: (id) =>
-        set((s) => ({ faqs: s.faqs.filter((f) => f.id !== id) })),
+      // deleteFaq: (id) =>
+      //   set((s) => ({ faqs: s.faqs.filter((f) => f.id !== id) })),
 
-      reorderFaqs: (faqs) => set({ faqs }),
+      // reorderFaqs: (faqs) => set({ faqs }),
 
       // Appointment status
       updateAppointmentStatus: (id, status) =>
@@ -219,7 +219,6 @@ const useClinicStore = create(
 
           const response = await tenantApi.updateProfile(payload);
 
-          console.log("Clinic profile updated successfully:", response);
           if (response?.success) {
             // Update local store with confirmed data
             set((s) => ({

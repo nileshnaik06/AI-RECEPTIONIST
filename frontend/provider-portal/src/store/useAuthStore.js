@@ -11,6 +11,7 @@ const useAuthStore = create(
   persist(
     (set, get) => ({
       user: null,
+      token: null,
       apiKey: null,
       isAuthenticated: false,
 
@@ -26,10 +27,11 @@ const useAuthStore = create(
               plan: "pro",
               avatar: null,
             },
+            token: response.data.token,
             isAuthenticated: true,
           });
         } catch (error) {
-          set({ isAuthenticated: false, user: null });
+          set({ isAuthenticated: false, user: null, token: null });
           throw error;
         }
       },
@@ -50,12 +52,13 @@ const useAuthStore = create(
               plan: "starter",
               avatar: null,
             },
+            token: response.data.token,
             apiKey: response.data.apiKey,
             isAuthenticated: true,
           });
           return response.data.apiKey;
         } catch (error) {
-          set({ isAuthenticated: false, user: null, apiKey: null });
+          set({ isAuthenticated: false, user: null, token: null, apiKey: null });
           throw error;
         }
       },
