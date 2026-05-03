@@ -5,6 +5,11 @@
  */
 import { createDefaultWorkingHoursConfig } from './workingHours';
 
+function seededRandom(seed) {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
 // ─── Appointments ─────────────────────────────────────────────────────────────
 
 export const MOCK_APPOINTMENTS = Array.from({ length: 28 }, (_, i) => ({
@@ -23,14 +28,14 @@ export const MOCK_APPOINTMENTS = Array.from({ length: 28 }, (_, i) => ({
 
 const today = new Date();
 
-export function generateAreaChartData(days) {
+export function generateAreaChartData(days, seed = 42) {
   return Array.from({ length: days }, (_, i) => {
     const d = new Date(today);
     d.setDate(d.getDate() - (days - 1 - i));
     return {
       date:         d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      appointments: Math.floor(Math.random() * 18) + 2,
-      sessions:     Math.floor(Math.random() * 30) + 5,
+      appointments: Math.floor(seededRandom(seed + i * 1) * 18) + 2,
+      sessions:     Math.floor(seededRandom(seed + i * 2) * 30) + 5,
     };
   });
 }

@@ -1,25 +1,19 @@
-import { useState, useMemo, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search,
-  Download,
-  ChevronLeft,
-  ChevronRight,
-  MoreHorizontal,
-  X,
-  CalendarDays,
-  Filter,
-  Eraser,
-} from "lucide-react";
-import useClinicStore from "../store/useClinicStore";
-import { StatusBadge } from "../components/shared/StatusBadge";
-import { EmptyState } from "../components/shared/EmptyState";
-import { useToast } from "../components/shared/Toast";
-import { formatDate, formatTime, formatDateTime, cn } from "../lib/utils";
-import useAppointmentStore from "../store/useAppointmentStore";
+  Search, Download, ChevronLeft, ChevronRight,
+  MoreHorizontal, X, CalendarDays,
+} from 'lucide-react';
+import useClinicStore from '../store/useClinicStore';
+import { StatusBadge } from '../components/shared/StatusBadge';
+import { EmptyState } from '../components/shared/EmptyState';
+import { VirtualizedTable } from '../components/shared/VirtualizedTable';
+import { useToast } from '../components/shared/Toast';
+import { formatDate, formatTime, cn } from '../lib/utils';
 
-const STATUSES = ["All", "pending", "confirmed", "cancelled"];
-const PAGE_SIZE = 10;
+const STATUSES = ['All', 'Pending', 'Confirmed', 'Cancelled'];
+const VIRTUALIZATION_ROW_HEIGHT = 56; // Height of each table row in pixels
 
 // ─── Appointment Detail Drawer ────────────────────────────────────────────────
 
@@ -27,213 +21,249 @@ function DetailDrawer({ appointment, onClose, onStatusChange }) {
   if (!appointment) return null;
   const toast = useToast();
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [onClose]);
+
   const handleConfirm = () => {
-    onStatusChange(appointment._id, "confirmed");
+    onStatusChange(appointment.id, 'Confirmed');
     toast.success(`${appointment.patient}'s appointment confirmed.`);
     onClose();
   };
 
   const handleCancel = () => {
-    onStatusChange(appointment._id, "cancelled");
+    onStatusChange(appointment.id, 'Cancelled');
     toast.info(`Appointment cancelled.`);
     onClose();
   };
 
-  return (
-    <>
-      {/* Backdrop */}
-      <div onClick={onClose} className="fixed inset-0 z-30 bg-black/20" />
-      {/* Drawer */}
+  return createPortal(
+    <AnimatePresence>
       <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ duration: 0.22, ease: "easeOut" }}
-        className="fixed top-[60px] right-0 bottom-0 z-40 w-[400px] bg-surface border-l border-border overflow-y-auto"
+        key="appointments-drawer-root"
+        className="fixed inset-0 z-[80] flex justify-end"
       >
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h2 className="text-h3 text-text-primary">
+        <motion.button
+          type="button"
+          aria-label="Close appointment drawer"
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.16, ease: 'easeOut' }}
+          className="absolute inset-0 bg-slate-950/50 backdrop-blur-[8px]"
+        />
+
+        <motion.aside
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="appointment-drawer-title"
+          initial={{ x: '100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: '100%' }}
+          transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+          className={cn(
+            'relative h-[100svh] w-full max-w-full bg-surface shadow-2xl shadow-slate-950/20',
+            'border-l border-border/80 overflow-hidden flex flex-col',
+            'md:w-[460px] md:max-w-[min(460px,calc(100vw-24px))] md:rounded-l-2xl'
+          )}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-border/70 bg-surface/95 backdrop-blur-sm">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">Appointment details</p>
+              <h2 id="appointment-drawer-title" className="mt-1 text-h3 text-text-primary truncate">
                 {appointment.patient}
               </h2>
-              <StatusBadge status={appointment.status} className="mt-1" />
             </div>
             <button
               onClick={onClose}
-              className="text-text-muted hover:text-text-primary transition-colors"
+              aria-label="Close appointment drawer"
+              className="ml-4 grid h-10 w-10 place-items-center rounded-full border border-border bg-surface text-text-muted shadow-sm transition-colors duration-150 hover:border-border/80 hover:bg-surface-secondary hover:text-text-primary"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
 
-          {/* Details */}
-          <dl className="space-y-3 mb-6">
-            {[
-              ["Service", appointment.service],
-              ["Date", formatDate(appointment.date)],
-              ["Time", appointment.time],
-              ["Phone", appointment.phone],
-              [
-                "Booked At",
-                formatDate(appointment.bookedAt, {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-              ],
-              ["Session", appointment.sessionId],
-            ].map(([label, value]) => (
-              <div key={label} className="flex gap-4">
-                <dt className="text-label uppercase text-text-muted w-20 flex-shrink-0">
-                  {label}
-                </dt>
-                <dd className="text-sm text-text-primary font-medium">
-                  {value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-
-          {/* Timeline */}
-          <div className="mb-6">
-            <h4 className="text-label uppercase text-text-muted mb-3">
-              Timeline
-            </h4>
-            <div className="space-y-3">
-              {[
-                {
-                  label: "Booked via chatbot",
-                  time: appointment.bookedAt,
-                  done: true,
-                },
-                {
-                  label: "Appointment scheduled",
-                  time: appointment.date,
-                  done: true,
-                },
-                {
-                  label:
-                    appointment.status === "confirmed"
-                      ? "confirmed"
-                      : appointment.status === "cancelled"
-                        ? "cancelled"
-                        : "Awaiting confirmation",
-                  time: null,
-                  done: appointment.status !== "pending",
-                },
-              ].map((step, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div
-                    className={cn(
-                      "w-2 h-2 rounded-full mt-1.5 flex-shrink-0",
-                      step.done ? "bg-success" : "bg-border",
-                    )}
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">
-                      {step.label}
-                    </p>
-                    {step.time && (
-                      <p className="text-xs text-text-muted">
-                        {formatDate(step.time)}
-                      </p>
-                    )}
-                  </div>
+          <div className="flex-1 overflow-y-auto">
+            <div className="px-5 sm:px-6 py-5 space-y-6">
+              <div className="rounded-xl border border-border/70 bg-gradient-to-br from-surface to-surface-secondary p-4 shadow-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={appointment.status} />
+                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-text-muted">{appointment.service}</span>
                 </div>
-              ))}
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {[
+                    { label: 'Date', value: formatDate(appointment.date) },
+                    { label: 'Time', value: appointment.time },
+                    { label: 'Phone', value: appointment.phone },
+                    { label: 'Session', value: appointment.sessionId },
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-lg border border-border/60 bg-surface px-3 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">{item.label}</p>
+                      <p className="mt-1 text-sm font-semibold text-text-primary break-words">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-label uppercase tracking-[0.16em] text-text-muted mb-3">Summary</h4>
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ['Service', appointment.service],
+                    ['Booked At', formatDate(appointment.bookedAt, { hour: '2-digit', minute: '2-digit' })],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-lg border border-border/60 bg-surface px-4 py-3">
+                      <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">{label}</dt>
+                      <dd className="mt-1 text-sm font-semibold text-text-primary break-words">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+
+              <div>
+                <h4 className="text-label uppercase tracking-[0.16em] text-text-muted mb-3">Timeline</h4>
+                <div className="space-y-3 rounded-xl border border-border/70 bg-surface p-4 shadow-sm">
+                  {[
+                    { label: 'Booked via chatbot', time: appointment.bookedAt, done: true },
+                    { label: 'Appointment scheduled', time: appointment.date, done: true },
+                    { label: appointment.status === 'Confirmed' ? 'Confirmed' : appointment.status === 'Cancelled' ? 'Cancelled' : 'Awaiting confirmation', time: null, done: appointment.status !== 'Pending' },
+                  ].map((step, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          'mt-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-transparent',
+                          step.done ? 'bg-success shadow-[0_0_0_4px_rgba(16,185,129,0.12)]' : 'bg-border'
+                        )}
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-text-primary">{step.label}</p>
+                        {step.time && <p className="mt-1 text-xs text-text-muted">{formatDate(step.time)}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Actions */}
-          {appointment.status === "pending" && (
-            <div className="flex gap-2">
-              <button
-                onClick={handleConfirm}
-                className="flex-1 h-9 rounded-md text-sm font-semibold text-white bg-success hover:opacity-90 transition-opacity"
-              >
-                Confirm Appointment
-              </button>
-              <button
-                onClick={handleCancel}
-                className="flex-1 h-9 rounded-md text-sm font-semibold border border-danger text-danger hover:bg-danger-light transition-colors"
-              >
-                Cancel
-              </button>
+          {appointment.status === 'Pending' && (
+            <div className="border-t border-border/70 bg-surface/95 px-5 sm:px-6 py-4 backdrop-blur-sm">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleConfirm}
+                  className="h-11 flex-1 rounded-lg text-sm font-semibold text-white bg-success shadow-sm shadow-success/20 transition-colors duration-150 hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-success/30"
+                >
+                  Confirm Appointment
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="h-11 flex-1 rounded-lg text-sm font-semibold border border-danger/30 text-danger bg-danger-light/20 transition-colors duration-150 hover:bg-danger-light focus:outline-none focus:ring-2 focus:ring-danger/20"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
-        </div>
+        </motion.aside>
       </motion.div>
-    </>
+    </AnimatePresence>,
+    document.body
   );
 }
 
 // ─── Appointments Page ────────────────────────────────────────────────────────
 
 export default function Appointments() {
-  const { appointments, updateAppointmentStatus, fetchAppointments } =
-    useAppointmentStore();
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("All");
-  const [page, setPage] = useState(1);
+  const { appointments, updateAppointmentStatus } = useClinicStore();
+  const [search, setSearch]     = useState('');
+  const [status, setStatus]     = useState('All');
   const [selected, setSelected] = useState(null);
   const [selectedRows, setSelectedRows] = useState(new Set());
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-
   const toast = useToast();
 
-  useEffect(() => {
-    const loadAppointments = async () => {
-      try {
-        await fetchAppointments();
-      } catch (error) {
-        console.error("Failed to load appointments:", error);
-      }
-    };
-    loadAppointments();
-  }, [fetchAppointments]);
-  // Filter logic
-
+  // Filter logic - memoized to prevent unnecessary recalculations
   const filtered = useMemo(() => {
     return appointments.filter((a) => {
-      const matchStatus = status === "All" || a.status === status;
-      const matchSearch =
-        !search ||
-        [a.patientName, a.service, a.phone].some(
-          (f) => f && f.toLowerCase().includes(search.toLowerCase()),
-        );
-
-      let matchDate = true;
-      if (startDate || endDate) {
-        const apptDate = new Date(a.date);
-        apptDate.setHours(0, 0, 0, 0); // Normalize to midnight for fair comparison
-
-        if (startDate) {
-          const start = new Date(startDate);
-          start.setHours(0, 0, 0, 0);
-          matchDate = matchDate && apptDate >= start;
-        }
-        if (endDate) {
-          const end = new Date(endDate);
-          end.setHours(0, 0, 0, 0);
-          matchDate = matchDate && apptDate <= end;
-        }
-      }
-
-      return matchStatus && matchSearch && matchDate;
+      const matchStatus = status === 'All' || a.status === status;
+      const matchSearch = !search || [a.patient, a.service, a.phone].some(
+        (f) => f.toLowerCase().includes(search.toLowerCase())
+      );
+      return matchStatus && matchSearch;
     });
-  }, [appointments, status, search, startDate, endDate]);
+  }, [appointments, status, search]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Calculate tab counts for display
+  const tabCounts = useMemo(() => ({
+    All:       appointments.length,
+    Pending:   appointments.filter((a) => a.status === 'Pending').length,
+    Confirmed: appointments.filter((a) => a.status === 'Confirmed').length,
+    Cancelled: appointments.filter((a) => a.status === 'Cancelled').length,
+  }), [appointments]);
 
-  const tabCounts = {
-    All: appointments.length,
-    Pending: appointments.filter((a) => a.status === "pending").length,
-    Confirmed: appointments.filter((a) => a.status === "confirmed").length,
-    Cancelled: appointments.filter((a) => a.status === "cancelled").length,
-  };
+  // Define table columns - each column maps to appointment properties
+  const columns = useMemo(() => [
+    {
+      key: 'checkbox',
+      header: '',
+      type: 'checkbox',
+      className: 'w-10',
+      render: () => null, // Handled by VirtualizedTable
+    },
+    {
+      key: 'patient',
+      header: 'Patient',
+      className: 'font-medium text-text-primary',
+    },
+    {
+      key: 'phone',
+      header: 'Phone',
+      className: 'font-mono text-xs',
+    },
+    {
+      key: 'service',
+      header: 'Service',
+    },
+    {
+      key: 'date',
+      header: 'Date',
+      render: (value) => formatDate(value),
+    },
+    {
+      key: 'time',
+      header: 'Time',
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (value) => <StatusBadge status={value} />,
+    },
+    {
+      key: 'bookedAt',
+      header: 'Booked At',
+      className: 'text-xs',
+      render: (value) => formatDate(value),
+    },
+    {
+      key: 'actions',
+      header: '',
+      className: 'w-10',
+      render: () => <MoreHorizontal size={16} />,
+    },
+  ], []);
 
   const toggleRow = (id) => {
     setSelectedRows((prev) => {
@@ -244,71 +274,17 @@ export default function Appointments() {
   };
 
   const handleBulkConfirm = () => {
-    selectedRows.forEach((id) => updateAppointmentStatus(id, "confirmed"));
+    selectedRows.forEach((id) => updateAppointmentStatus(id, 'Confirmed'));
     toast.success(`${selectedRows.size} appointments confirmed.`);
-
     setSelectedRows(new Set());
   };
 
-  const handleExport = () => {
-    if (filtered.length === 0) {
-      toast.error("No appointments to export.");
-      return;
-    }
-
-    // 1. Define the CSV headers
-    const headers = [
-      "Patient Name",
-      "Phone",
-      "Service",
-      "Date",
-      "Time",
-      "Status",
-      "Booked At",
-    ];
-
-    // 2. Map the filtered data into CSV rows
-    const csvRows = filtered.map((appt) => {
-      // We wrap values in quotes to prevent commas inside names/services from breaking the layout
-      return [
-        `"${appt.patientName || appt.patient || ""}"`,
-        `"${appt.phone || ""}"`,
-        `"${appt.service || ""}"`,
-        `"${formatDate(appt.date) || ""}"`,
-        `"${appt.time || ""}"`,
-        `"${appt.status || ""}"`,
-        `"${formatDateTime(appt.createdAt || appt.bookedAt) || ""}"`,
-      ].join(",");
-    });
-
-    // 3. Combine headers and rows with line breaks
-    const csvString = [headers.join(","), ...csvRows].join("\n");
-
-    // 4. Create a downloadable Blob
-    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    // 5. Create a temporary hidden link and trigger the download
-    const link = document.createElement("a");
-    link.href = url;
-    // Names the file "appointments_YYYY-MM-DD.csv"
-    link.setAttribute(
-      "download",
-      `appointments_${new Date().toISOString().split("T")[0]}.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-
-    // 6. Cleanup
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    toast.success(`${filtered.length} appointments exported successfully!`);
-  };
+  // Calculate viewport height for virtual table (header + 12 rows visible)
+  const tableHeight = Math.min(600, VIRTUALIZATION_ROW_HEIGHT * 12);
 
   return (
     <div className="space-y-4 max-w-[1400px]">
-      {/* ── Page Header ─────────────────────────────────────────── */}
+      {/* ── Page Header ────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-h2 text-text-primary">Appointments</h1>
@@ -323,38 +299,26 @@ export default function Appointments() {
               animate={{ opacity: 1, scale: 1 }}
               className="flex gap-2"
             >
-              <button
-                onClick={handleBulkConfirm}
-                className="h-9 px-3 text-sm font-medium bg-success text-white rounded-md hover:opacity-90"
-              >
+              <button onClick={handleBulkConfirm}
+                className="h-9 px-3 text-sm font-medium bg-success text-white rounded-md hover:opacity-90">
                 Confirm {selectedRows.size}
               </button>
-              <button
-                onClick={() => {
-                  selectedRows.forEach((id) =>
-                    updateAppointmentStatus(id, "cancelled"),
-                  );
-                  setSelectedRows(new Set());
-                  toast.info("Selected appointments cancelled.");
-                }}
-                className="h-9 px-3 text-sm font-medium border border-danger text-danger rounded-md hover:bg-danger-light"
-              >
+              <button onClick={() => {
+                selectedRows.forEach((id) => updateAppointmentStatus(id, 'Cancelled'));
+                setSelectedRows(new Set());
+                toast.info('Selected appointments cancelled.');
+              }}
+                className="h-9 px-3 text-sm font-medium border border-danger text-danger rounded-md hover:bg-danger-light">
                 Cancel {selectedRows.size}
               </button>
             </motion.div>
           )}
           {/* Search */}
           <div className="relative">
-            <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-            />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => { setSearch(e.target.value); }}
               placeholder="Search patients..."
               className="h-9 pl-9 pr-3 w-48 text-sm border border-border rounded-md bg-surface focus:outline-none focus:border-primary"
             />
@@ -362,87 +326,37 @@ export default function Appointments() {
           {/* Status filter */}
           <select
             value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => { setStatus(e.target.value); }}
             className="h-9 px-3 text-sm border border-border rounded-md bg-surface text-text-secondary focus:outline-none"
           >
-            {STATUSES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
+            {STATUSES.map((s) => <option key={s}>{s}</option>)}
           </select>
-          <div className="flex items-center gap-1 border border-border rounded-md bg-surface px-2">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                setPage(1);
-              }}
-              className="h-9 text-sm bg-transparent text-text-secondary focus:outline-none"
-              title="Start Date"
-            />
-            <span className="text-text-muted text-xs">to</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                setPage(1);
-              }}
-              className="h-9 text-sm bg-transparent text-text-secondary focus:outline-none"
-              title="End Date"
-            />
-          </div>{" "}
-          <button
-            onClick={ () => {
-              setSearch("");
-              setStatus("All");
-              setStartDate("");
-              setEndDate("");
-              setPage(1);
-            }}
-          className="h-9 px-3 flex items-center gap-2 text-sm border border-border rounded-md hover:bg-surface-secondary text-text-secondary transition-colors">
-            <Eraser size={15} />
-            Clear
-          </button>
-          <button
-            onClick={handleExport}
-            className="h-9 px-3 flex items-center gap-2 text-sm border border-border rounded-md hover:bg-surface-secondary text-text-secondary transition-colors"
-          >
+          <button className="h-9 px-3 flex items-center gap-2 text-sm border border-border rounded-md hover:bg-surface-secondary text-text-secondary transition-colors">
             <Download size={15} />
             Export
           </button>
         </div>
       </div>
 
-      {/* ── Tabs ────────────────────────────────────────────────── */}
+      {/* ── Tabs ────────────────────────────────────────────────────────────── */}
       <div className="flex gap-0 border-b border-border">
         {STATUSES.map((s) => (
           <button
             key={s}
-            onClick={() => {
-              setStatus(s);
-              setPage(1);
-            }}
+            onClick={() => { setStatus(s); }}
             className={cn(
-              "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 -mb-px",
+              'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 -mb-px',
               status === s
-                ? "border-primary text-primary"
-                : "border-transparent text-text-muted hover:text-text-primary",
+                ? 'border-primary text-primary'
+                : 'border-transparent text-text-muted hover:text-text-primary'
             )}
           >
             {s}
             {tabCounts[s] > 0 && (
-              <span
-                className={cn(
-                  "ml-2 px-1.5 py-0.5 text-xs rounded-full",
-                  status === s
-                    ? "bg-primary text-white"
-                    : "bg-surface-secondary text-text-muted",
-                )}
-              >
+              <span className={cn(
+                'ml-2 px-1.5 py-0.5 text-xs rounded-full',
+                status === s ? 'bg-primary text-white' : 'bg-surface-secondary text-text-muted'
+              )}>
                 {tabCounts[s]}
               </span>
             )}
@@ -450,144 +364,27 @@ export default function Appointments() {
         ))}
       </div>
 
-      {/* ── Table ───────────────────────────────────────────────── */}
-      <div className="bg-surface border border-border rounded-md overflow-hidden">
-        {filtered.length === 0 ? (
-          <EmptyState
-            icon={CalendarDays}
-            title="No appointments found"
-            description="Try adjusting your filters or date range."
-            action={{
-              label: "Clear Filters",
-              onClick: () => {
-                setSearch("");
-                setStatus("All");
-                setStartDate(""); // <-- Added this
-                setEndDate(""); // <-- Added this
-              },
-            }}
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th className="w-10">
-                    <input
-                      type="checkbox"
-                      // ADD THIS LINE SO IT KNOWS WHEN TO BE CHECKED/UNCHECKED:
-                      checked={
-                        paginated.length > 0 &&
-                        paginated.every((a) => selectedRows.has(a._id))
-                      }
-                      onChange={(e) => {
-                        setSelectedRows(
-                          e.target.checked
-                            ? new Set(paginated.map((a) => a._id))
-                            : new Set(),
-                        );
-                      }}
-                      className="rounded"
-                    />
-                  </th>
-                  <th>Patient</th>
-                  <th>Phone</th>
-                  <th>Service</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Status</th>
-                  <th>Booked At</th>
-                  <th className="w-10" />
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.map((appt) => (
-                  <tr
-                    key={appt._id}
-                    onClick={() => setSelected(appt)}
-                    className={cn(
-                      "cursor-pointer",
-                      selectedRows.has(appt._id) && "bg-primary-light",
-                    )}
-                  >
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selectedRows.has(appt._id)}
-                        onChange={() => toggleRow(appt._id)}
-                        className="rounded"
-                      />
-                    </td>
-                    <td className="font-medium text-text-primary">
-                      {appt.patientName}
-                    </td>
-                    <td className="font-mono text-xs">{appt.phone}</td>
-                    <td>{appt.service}</td>
-                    <td>{formatDate(appt.date)}</td>
-                    <td>{appt.time}</td>
-                    <td>
-                      <StatusBadge status={appt.status} />
-                    </td>
-                    <td className="text-xs">
-                      {formatDateTime(appt.createdAt)}
-                    </td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <button className="text-text-muted hover:text-text-primary">
-                        <MoreHorizontal size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* ── Pagination ──────────────────────────────────────────── */}
-      {filtered.length > PAGE_SIZE && (
-        <div className="flex items-center justify-between text-sm text-text-muted">
-          <span>
-            Showing {(page - 1) * PAGE_SIZE + 1}–
-            {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="w-8 h-8 flex items-center justify-center rounded-md border border-border hover:bg-surface-secondary disabled:opacity-40 transition-colors"
-            >
-              <ChevronLeft size={15} />
-            </button>
-            {Array.from(
-              { length: Math.min(5, totalPages) },
-              (_, i) => i + 1,
-            ).map((n) => (
-              <button
-                key={n}
-                onClick={() => setPage(n)}
-                className={cn(
-                  "w-8 h-8 text-xs rounded-md border transition-colors",
-                  n === page
-                    ? "bg-primary border-primary text-white"
-                    : "border-border hover:bg-surface-secondary",
-                )}
-              >
-                {n}
-              </button>
-            ))}
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="w-8 h-8 flex items-center justify-center rounded-md border border-border hover:bg-surface-secondary disabled:opacity-40 transition-colors"
-            >
-              <ChevronRight size={15} />
-            </button>
-          </div>
-        </div>
+      {/* ── Virtualized Table ────────────────────────────────────────────────── */}
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={CalendarDays}
+          title="No appointments found"
+          description="Try adjusting your filters or date range."
+          action={{ label: 'Clear Filters', onClick: () => { setSearch(''); setStatus('All'); } }}
+        />
+      ) : (
+        <VirtualizedTable
+          columns={columns}
+          rows={filtered}
+          height={tableHeight}
+          itemSize={VIRTUALIZATION_ROW_HEIGHT}
+          onRowClick={(row) => setSelected(row)}
+          selectedRowIds={selectedRows}
+          onToggleRow={toggleRow}
+        />
       )}
 
-      {/* ── Detail Drawer ─────────────────────────────────────────── */}
+      {/* ── Detail Drawer ──────────────────────────────────────────────────── */}
       <AnimatePresence>
         {selected && (
           <DetailDrawer

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useUIStore from '../store/useUIStore';
 
@@ -12,12 +12,13 @@ import useUIStore from '../store/useUIStore';
 export function useKeyboardShortcuts() {
   const navigate   = useNavigate();
   const openSearch = useUIStore((s) => s.openSearch);
+  const handlerRef = useRef(null);
 
   useEffect(() => {
     let lastKey = '';
     let lastKeyTime = 0;
 
-    const handler = (e) => {
+    handlerRef.current = (e) => {
       // Don't fire shortcuts when typing in inputs
       const inInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
       if (inInput) return;
@@ -42,7 +43,7 @@ export function useKeyboardShortcuts() {
       lastKeyTime = now;
     };
 
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('keydown', handlerRef.current);
+    return () => window.removeEventListener('keydown', handlerRef.current);
   }, [navigate, openSearch]);
 }

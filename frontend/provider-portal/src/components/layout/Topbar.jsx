@@ -1,4 +1,5 @@
 import { useLocation, Link } from 'react-router-dom';
+import { useMemo } from 'react';
 import { Search, Bell, HelpCircle, ChevronRight } from 'lucide-react';
 import useUIStore from '../../store/useUIStore';
 import useClinicStore from '../../store/useClinicStore';
@@ -24,8 +25,14 @@ export function Topbar() {
   const { openSearch, sidebarCollapsed } = useUIStore();
   const { appointments } = useClinicStore();
 
-  const breadcrumbs = BREADCRUMB_MAP[pathname] ?? [pathname.replace('/', '')];
-  const pendingCount = appointments.filter((a) => a.status === 'Pending').length;
+  const breadcrumbs = useMemo(
+    () => BREADCRUMB_MAP[pathname] ?? [pathname.replace('/', '')],
+    [pathname]
+  );
+  const pendingCount = useMemo(
+    () => appointments.filter((a) => a.status === 'Pending').length,
+    [appointments]
+  );
 
   // Determine left margin based on sidebar state
   const leftOffset = sidebarCollapsed ? 64 : 240;

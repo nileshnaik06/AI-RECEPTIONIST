@@ -53,7 +53,7 @@ const NAV_GROUPS = [
 
 // ─── Individual Nav Item ──────────────────────────────────────────────────────
 
-function NavItem({ path, label, icon: Icon, badge, collapsed }) {
+function NavItem({ path, label, icon: Icon, badge, collapsed, index = 0 }) {
   const navLink = (
     <NavLink
       to={path}
@@ -70,7 +70,7 @@ function NavItem({ path, label, icon: Icon, badge, collapsed }) {
                 initial={{ opacity: 0, width: 0 }}
                 animate={{ opacity: 1, width: 'auto' }}
                 exit={{ opacity: 0, width: 0 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.2, delay: index * 0.03 }}
                 className="overflow-hidden whitespace-nowrap ml-1"
               >
                 {label}
@@ -152,7 +152,7 @@ export function Sidebar() {
 
       {/* ─── Navigation ────────────────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-5 relative scrollbar-none">
-        {NAV_GROUPS.map((group) => (
+        {NAV_GROUPS.map((group, groupIndex) => (
           <div key={group.label} className="flex flex-col gap-0.5">
             {/* Section label — hidden when collapsed */}
             <AnimatePresence>
@@ -172,13 +172,17 @@ export function Sidebar() {
             </AnimatePresence>
             {/* Nav items */}
             <div className="flex flex-col gap-0.5">
-              {group.items.map((item) => (
-                <NavItem
-                  key={item.path}
-                  {...item}
-                  collapsed={sidebarCollapsed}
-                />
-              ))}
+              {group.items.map((item, itemIndex) => {
+                const globalIndex = NAV_GROUPS.slice(0, groupIndex).reduce((sum, g) => sum + g.items.length, 0) + itemIndex;
+                return (
+                  <NavItem
+                    key={item.path}
+                    {...item}
+                    collapsed={sidebarCollapsed}
+                    index={globalIndex}
+                  />
+                );
+              })}
             </div>
           </div>
         ))}
