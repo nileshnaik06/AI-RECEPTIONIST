@@ -1,5 +1,6 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
+
 const {
   getAllAppointments,
   getAppointmentById,
@@ -7,19 +8,19 @@ const {
   updateAppointmentStatus,
   deleteAppointment,
   getAvailableSlots,
-} = require('../controller/appointmentController');
+} = require("../controller/appointmentController");
 
-const jwtAuth = require('../middleware/jwtAuth');
-const apiKeyAuth = require('../middleware/apiKeyAuth');
+const { authenticate } = require("../middleware/auth.middleware.js");
+const { verifyApiKey } = require("../middleware/apiKeyAuth.js");
 
-// Widget route — protected by API key (called from chat system)
-router.post('/', apiKeyAuth, createAppointment);
+// ── Widget/Chat routes — API key protected ─────────────────────
+router.post("/", verifyApiKey, createAppointment);
+router.get("/available-slots", verifyApiKey, getAvailableSlots);
 
-// Admin routes — protected by JWT
-router.get('/', jwtAuth, getAllAppointments);
-router.get('/available-slots', jwtAuth, getAvailableSlots);
-router.get('/:id', jwtAuth, getAppointmentById);
-router.patch('/:id/status', jwtAuth, updateAppointmentStatus);
-router.delete('/:id', jwtAuth, deleteAppointment);
+// ── Admin routes — JWT protected ──────────────────────────────
+router.get("/", authenticate, getAllAppointments);
+router.get("/:id", authenticate, getAppointmentById);
+router.patch("/:id/status", authenticate, updateAppointmentStatus);
+router.delete("/:id", authenticate, deleteAppointment);
 
 module.exports = router;

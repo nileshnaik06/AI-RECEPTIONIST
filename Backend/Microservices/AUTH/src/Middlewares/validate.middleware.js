@@ -2,12 +2,12 @@
 const ApiError = require('../utils/ApiError.js')
 
 exports.validateSignup = (req, res, next) => {
-  const { name, email, password } = req.body
+  const { docName, email, password } = req.body
 
   const errors = []
 
-  if (!name || name.trim().length < 2) {
-    errors.push('Name must be at least 2 characters')
+  if (!docName || docName.trim().length < 2) {
+    errors.push('Doctor/Owner name is required (min 2 characters)')
   }
 
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) {

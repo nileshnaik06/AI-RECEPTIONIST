@@ -1,30 +1,56 @@
-// routes/tenant.routes.js
 const express = require("express");
 const router = express.Router();
 
 const {
-  registerTenant,
-  loginTenant,
+  getProfile,
+  updateProfile,
+  regenerateApiKey,
 } = require("../controllers/tenant.controller");
 
-const { verifyApiKey } = require("../middleware/apiKey.middleware");
-const { authenticate } = require("../middleware/auth.middleware");
+const { authenticate } = require("../Middlewares/auth.middleware");
+const { verifyApiKey } = require("../Middlewares/apiKey.middleware");
+const crypto = require("crypto");
+const Tenant = require("../model/tenant.model");
+const asyncHandler = require("../utils/asyncHandler");
 
-// Public
-router.post("/register", registerTenant);
-router.post("/login", loginTenant);
+// ── JWT protected routes (admin dashboard) ────────────────────
+// All these require a JWT token from the centralized AUTH service
+router.get("/profile", authenticate, getProfile);
+router.put("/profile", authenticate, updateProfile);
+router.post("/regenerate-api-key", authenticate, regenerateApiKey);
 
-// Protected via JWT
-router.get("/profile", authenticate, (req, res) => {
-  res.json({ message: "Tenant profile" });
-});
+// ── API key protected route (widget / AI system) ───────────────
+// Used by internal services (Chat, FAQ, etc.) to fetch clinic information
+// ⚠️  NO middleware here to avoid circular dependency - verification happens in handler
+router.get("/clinic-info", asyncHandler(async (req, res) => {
+  const apiKey = req.headers["x-api-key"];
 
-// Protected via API key (for AI system)
-router.get("/ai-access", verifyApiKey, (req, res) => {
+  if (!apiKey) {
+    return res.status(401).json({ success: false, message: "API key missing" });
+  }
+
+  const hashedKey = crypto.createHash("sha256").update(apiKey).digest("hex");
+  const tenant = await Tenant.findOne({ apiKey: hashedKey }).select("+apiKey");
+
+  if (!tenant) {
+    return res.status(403).json({ success: false, message: "Invalid API key" });
+  }
+
+  if (!tenant.isActive) {
+    return res.status(403).json({ success: false, message: "Account is deactivated" });
+  }
+
   res.json({
-    message: "Access granted",
-    clinic: req.tenant.details.clinicName,
+    success: true,
+    data: {
+      user_id: tenant.user_id,
+      clinicName: tenant.clinicName,
+      phone: tenant.phone,
+      workingHrs: tenant.workingHrs,
+      services: tenant.services,
+      welcomeMsg: tenant.welcomeMsg,
+    },
   });
-});
+}));
 
 module.exports = router;
